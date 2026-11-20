@@ -1,0 +1,9 @@
+# Render Blueprint: New + > Blueprint, pick this repo. Free plan sleeps after ~15 min idle (rooms are lost then).
+services:
+  - type: web
+    name: game-night
+    runtime: node
+    plan: free
+    buildCommand: "echo no build step"
+    startCommand: node game-night-server/server.js
+    healthCheckPath: /health

@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b1340">
+<title>Game Night</title>
+<style>
+/* =====================================================================
+   GAME NIGHT — styles
+   1. Base / theme   2. Shared UI (buttons, bars, modal, toast, dice)
+   3. Menu           4. Per-game styles
+   ===================================================================== */
+
+/* ---------- 1. Base / theme ---------- */
+:root{
+  --bg1:#1b1340; --bg2:#0f1b3d; --ink:#f6f4ff; --mute:#b9b4d9; --accent:#ffb703;
+  --glass:#ffffff14; --glass2:#ffffff24; --line:#ffffff26;
+  --c0:#ef4444; --c1:#22c55e; --c2:#eab308; --c3:#3b82f6;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);
+  background:radial-gradient(1100px 700px at 8% -10%,#6d3ee066,transparent),
+             radial-gradient(900px 600px at 110% 8%,#0ea5e944,transparent),
+             linear-gradient(160deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;min-height:100vh;overflow-x:hidden;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:default}
+.hidden{display:none!important}
+.hint{color:var(--mute);font-size:13px;margin:4px 0;text-align:center}
+
+/* ---------- 2. Shared UI ---------- */
+.btn{border:0;border-radius:14px;padding:12px 20px;font-weight:700;font-size:16px;color:#1a1033;
+  background:linear-gradient(180deg,#ffd166,#ffb703);box-shadow:0 4px 0 #b9770e,0 8px 16px #0005;transition:transform .1s,box-shadow .1s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #b9770e}
+.btn.ghost{background:var(--glass2);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.btn.small{padding:8px 12px;font-size:14px;border-radius:12px}
+#mute{position:fixed;top:max(10px,env(safe-area-inset-top));right:10px;z-index:60;width:42px;height:42px;border-radius:50%;
+  border:1px solid var(--line);background:#0006;backdrop-filter:blur(6px);font-size:20px;display:grid;place-items:center}
+.screen{max-width:900px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 14px 30px}
+.bar{display:flex;align-items:center;gap:10px;padding-right:50px}
+.bar h2{margin:0;font-size:20px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.turnbar{display:flex;align-items:center;gap:10px;margin:12px auto 6px;padding:8px 16px;border-radius:999px;
+  background:var(--glass);border:1px solid var(--line);width:fit-content;max-width:100%;font-weight:700}
+.turnbar .dot{width:16px;height:16px;border-radius:50%;background:#888;box-shadow:0 0 0 3px #fff3,0 0 12px currentColor;flex:none;transition:background .3s}
+.turnbar small{color:var(--mute);font-weight:500}
+.stage{--bs:max(280px,min(94vw,calc(100vh - 250px),560px));display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:13px;font-weight:600}
+.chip.on{background:var(--glass2);border-color:#fff8;box-shadow:0 0 12px #fff4}
+.chip .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.dot{display:inline-block}
+
+.overlay{position:fixed;inset:0;z-index:100;background:#050217b8;backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px;animation:fade .2s}
+.sheet{width:min(100%,420px);max-height:92vh;overflow:auto;background:linear-gradient(160deg,#2b1d63,#18285a);border:1px solid var(--line);
+  border-radius:24px;padding:22px;box-shadow:0 20px 60px #000a;animation:pop .25s}
+.sheet h3{margin:0 0 12px;font-size:22px}
+.sheet label{font-size:13px;color:var(--mute);display:block;margin:12px 0 6px}
+.sheet input[type=text]{width:100%;margin:4px 0;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:#0004;color:var(--ink);font-size:16px}
+.seg{display:flex;gap:6px;background:#0004;padding:4px;border-radius:14px}
+.seg button{flex:1;border:0;background:transparent;padding:10px 6px;border-radius:11px;font-weight:700;font-size:14px}
+.seg button.on{background:linear-gradient(180deg,#8b5cf6,#6d28d9);box-shadow:0 2px 8px #0006}
+.row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.winner{text-align:center}
+.winner .big{font-size:64px;animation:bounce 1s infinite alternate}
+.winner h3{font-size:26px}
+.winner p{color:var(--mute);margin:6px 0 0}
+#toasts{position:fixed;left:0;right:0;top:64px;z-index:120;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.toast{background:#111827ee;color:#fff;padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 6px 20px #0008;animation:pop .2s;transition:opacity .35s,transform .35s;max-width:92vw;text-align:center}
+.toast.out{opacity:0;transform:translateY(-8px)}
+canvas.confetti{position:fixed;inset:0;width:100%;height:100%;z-index:130;pointer-events:none}
+@keyframes fade{from{opacity:0}}
+@keyframes pop{from{opacity:0;transform:scale(.88)}}
+@keyframes bounce{to{transform:translateY(-10px) rotate(6deg)}}
+@keyframes pulse{to{transform:scale(1.14)}}
+
+/* Dice (shared by Ludo and Snakes & Ladders) */
+.dice{--dc:#fff;width:68px;height:68px;border-radius:16px;border:0;padding:9px;background:linear-gradient(145deg,#fff,#e5e7eb);
+  display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);box-shadow:0 5px 0 #9ca3af,0 10px 18px #0006;position:relative;transition:transform .1s}
+.dice::after{content:'';position:absolute;inset:0;border-radius:16px;box-shadow:inset 0 0 0 4px var(--dc);opacity:.9;pointer-events:none}
+.dice i{width:78%;height:78%;margin:auto;border-radius:50%;background:transparent}
+.dice i.on{background:#1f2937;box-shadow:inset 0 2px 3px #000a}
+.dice.ready{animation:wob .9s infinite}
+.dice.ready::before{content:'TAP';position:absolute;top:-22px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px}
+.dice.rolling{animation:shake .12s infinite}
+@keyframes wob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) scale(1.06)}}
+@keyframes shake{0%{transform:rotate(-14deg) translateY(-4px)}50%{transform:rotate(12deg) translateY(2px)}100%{transform:rotate(-8deg) translateY(-3px)}}
+.dicebar{display:flex;align-items:center;justify-content:center;gap:16px;min-height:90px;padding-top:12px}
+.dicebar .info{max-width:230px;font-size:14px;color:var(--mute);min-height:38px;display:flex;align-items:center}
+
+/* ---------- 3. Menu ---------- */
+.hero{text-align:center;padding:30px 0 18px}
+.hero h1{margin:0;font-size:clamp(40px,11vw,68px);letter-spacing:-1px;background:linear-gradient(90deg,#ffd166,#ff7eb6,#7dd3fc,#ffd166);background-size:200% auto;animation:shine 5s linear infinite;-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--mute);margin:8px 0 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:12px}
+.gcard{position:relative;overflow:hidden;animation:cardin .55s both;animation-delay:calc(var(--i)*80ms);border:0;text-align:left;padding:16px 16px 14px;border-radius:22px;color:#fff;display:flex;flex-direction:column;gap:3px;
+  background:linear-gradient(145deg,var(--c1),var(--c2));box-shadow:0 10px 26px #0006,inset 0 1px 0 #fff4;transition:transform .15s}
+.gcard:hover,.gcard:focus-visible{transform:translateY(-5px) rotate(-.6deg)}
+.gcard .ico{font-size:46px;line-height:1.1;filter:drop-shadow(0 4px 4px #0004)}
+.gcard strong{font-size:19px;margin-top:4px}
+.gcard small{opacity:.92;font-size:13px;line-height:1.3}
+.gcard em{font-style:normal;font-size:12px;opacity:.85;margin-top:6px;background:#0003;border-radius:999px;padding:3px 9px;width:fit-content}
+.badge{position:absolute;top:10px;right:10px;background:#fff;color:#111;font-size:11px;font-weight:800;border-radius:999px;padding:3px 8px}
+.foot{text-align:center;color:var(--mute);font-size:12px;margin-top:26px}
+
+/* ---------- 4a. Tic-Tac-Toe ---------- */
+.ttt{width:min(86vw,360px);aspect-ratio:1;display:grid;grid:repeat(3,1fr)/repeat(3,1fr);gap:9px}
+.ttt-cell{border:0;border-radius:18px;background:var(--glass2);font-size:clamp(44px,16vw,84px);font-weight:900;line-height:1;box-shadow:inset 0 -4px 0 #0003;transition:background .2s,transform .1s}
+.ttt-cell:not(:disabled):hover{background:#ffffff38}
+.ttt-cell:disabled{opacity:1}
+.ttt-cell.X{color:#f472b6;animation:pop .2s}.ttt-cell.O{color:#22d3ee;animation:pop .2s}
+.ttt-cell.win{background:#fde04755;animation:pulse .5s infinite alternate}
+
+/* ---------- 4b. Connect Four ---------- */
+.c4{width:min(94vw,520px);background:#2563eb;border:8px solid #1d4ed8;border-radius:18px;display:grid;grid-template-columns:repeat(7,1fr);overflow:hidden;box-shadow:0 10px 30px #0008}
+.c4-col{display:flex;flex-direction:column;cursor:pointer}
+.c4-col:hover{background:#ffffff1c}
+.c4-cell{position:relative;aspect-ratio:1}
+.c4-cell::before{content:'';position:absolute;inset:8%;border-radius:50%;background:#0b1536;box-shadow:inset 0 4px 8px #000b}
+.disc{position:absolute;inset:8%;border-radius:50%;animation:drop calc(.2s + var(--from)*.065s) cubic-bezier(.5,0,.8,.7) both;box-shadow:inset 0 -4px 6px #0004,inset 0 3px 5px #fff5}
+.disc.p0{background:radial-gradient(circle at 35% 30%,#fca5a5,#ef4444 55%,#b91c1c)}
+.disc.p1{background:radial-gradient(circle at 35% 30%,#fef08a,#facc15 55%,#ca8a04)}
+.c4-cell.win .disc{animation:none;outline:4px solid #fff;box-shadow:0 0 18px 6px #fff}
+@keyframes drop{0%{transform:translateY(calc(var(--from)*-119%))}78%{transform:none}88%{transform:translateY(-9%)}100%{transform:none}}
+
+/* ---------- 4c. Checkers ---------- */
+.ck-board{position:relative;width:var(--bs);aspect-ratio:1;display:grid;grid:repeat(8,1fr)/repeat(8,1fr);border:6px solid #5b3a1e;border-radius:10px;box-shadow:0 10px 30px #0008;overflow:hidden}
+.ck-sq{position:relative}
+.ck-sq.lt{background:#f1dcb4}.ck-sq.dk{background:#8b5a3c}
+.ck-sq.mv::after{content:'';position:absolute;inset:6%;border-radius:50%;border:3px dashed #fde047;animation:pulse .7s infinite alternate}
+.ck-sq.sel{box-shadow:inset 0 0 0 4px #fde047}
+.ck-sq.tg::after{content:'';position:absolute;inset:34%;border-radius:50%;background:#4ade80cc;box-shadow:0 0 10px #4ade80;animation:pulse .6s infinite alternate}
+.ck-layer{position:absolute;inset:0;pointer-events:none}
+.ck-pc{position:absolute;width:12.5%;height:12.5%;transition:left .28s ease,top .28s ease}
+.ck-pc::before{content:'';position:absolute;inset:11%;border-radius:50%;box-shadow:0 3px 5px #0009,inset 0 -3px 4px #0005,inset 0 3px 3px #fff6}
+.ck-pc.p0::before{background:radial-gradient(circle at 35% 30%,#fca5a5,#ef4444 60%,#991b1b)}
+.ck-pc.p1::before{background:radial-gradient(circle at 35% 30%,#fff,#e2e8f0 60%,#94a3b8)}
+.ck-pc .crown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:calc(var(--bs)/8*.42)}
+.ck-pc.king .crown{display:flex}
+.ck-pc.cap{transform:scale(.2);opacity:0;transition:transform .35s,opacity .35s}
+
+/* ---------- 4d. Ludo ---------- */
+.ld-board{position:relative;width:var(--bs);aspect-ratio:1;display:grid;grid:repeat(15,1fr)/repeat(15,1fr);background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px #0009;border:3px solid #fff}
+.ld-cell{border:1px solid #0000001f;background:#fff;display:flex;align-items:center;justify-content:center;font-size:calc(var(--bs)/15*.7);line-height:1;color:#0000}
+.ld-cell.safe::after{content:'★';color:#0000004d}
+.ld-cell.home.c0{background:#ef4444}.ld-cell.home.c1{background:#22c55e}.ld-cell.home.c2{background:#eab308}.ld-cell.home.c3{background:#3b82f6}
+.ld-cell.st.c0{background:#fca5a5}.ld-cell.st.c1{background:#86efac}.ld-cell.st.c2{background:#fde047}.ld-cell.st.c3{background:#93c5fd}
+.ld-cell.st::after{color:#0007}
+.ld-base{display:grid;place-items:center}
+.ld-base.c0{background:#ef4444}.ld-base.c1{background:#22c55e}.ld-base.c2{background:#eab308}.ld-base.c3{background:#3b82f6}
+.ld-base.off{filter:grayscale(.85) brightness(1.15);opacity:.55}
+.ld-bin{width:66.7%;aspect-ratio:1;background:#fff;border-radius:16%;display:grid;grid:1fr 1fr/1fr 1fr;place-items:center;box-shadow:inset 0 3px 8px #0004}
+.ld-bin i{width:56%;aspect-ratio:1;border-radius:50%;background:#0001;box-shadow:inset 0 2px 4px #0004}
+.ld-center{position:relative}
+.ld-center svg{position:absolute;inset:0;width:100%;height:100%}
+.ld-tokens{position:absolute;inset:0;pointer-events:none}
+.tk{--s:1;position:absolute;width:5.6%;aspect-ratio:1;transform:translate(-50%,-50%) scale(var(--s));transition:left .16s linear,top .16s linear,transform .16s;pointer-events:auto}
+.tk-i{display:block;width:100%;height:100%;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px #000a,inset 0 -3px 4px #0004;
+  background:radial-gradient(circle at 35% 28%,#fffa,transparent 45%),var(--tc)}
+.tk.c0{--tc:#ef4444}.tk.c1{--tc:#16a34a}.tk.c2{--tc:#eab308}.tk.c3{--tc:#2563eb}
+.tk.blk .tk-i{box-shadow:0 0 0 2px #000,0 2px 5px #000a}
+.tk.can{cursor:pointer}
+.tk.can .tk-i{animation:pulse .6s infinite alternate;box-shadow:0 0 0 3px #fff,0 0 14px 5px #fde047}
+
+/* ---------- 4e. Snakes & Ladders ---------- */
+.sl-wrap{position:relative;width:var(--bs);aspect-ratio:10/11}
+.sl-grid{position:absolute;left:0;right:0;top:0;height:calc(100%*10/11);display:grid;grid:repeat(10,1fr)/repeat(10,1fr);border-radius:12px;overflow:hidden;border:3px solid #fff;box-shadow:0 10px 30px #0009}
+.sl-cell{position:relative;font-size:calc(var(--bs)/10*.26);font-weight:700;padding:2px 3px;color:#0008}
+.sl-cell.a{background:#fde68a}.sl-cell.b{background:#a7f3d0}
+.sl-cell.big{background:#fca5a5;color:#7f1d1d}
+.sl-svg{position:absolute;left:0;top:0;width:100%;height:calc(100%*10/11);pointer-events:none}
+.sl-start{position:absolute;left:0;right:0;bottom:0;height:calc(100%/11);display:flex;align-items:center;justify-content:flex-end;padding-right:10px;
+  font-size:calc(var(--bs)/10*.3);font-weight:800;letter-spacing:2px;color:var(--mute)}
+.pawn{position:absolute;width:5.6%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:2px solid #fff;color:#fff;font-size:calc(var(--bs)/10*.28);font-weight:900;
+  display:grid;place-items:center;transition:left .17s linear,top .17s linear;box-shadow:0 3px 6px #000a,inset 0 -3px 4px #0005;z-index:5;text-shadow:0 1px 2px #0008;
+  background:radial-gradient(circle at 35% 28%,#fff9,transparent 45%),var(--pc)}
+.pawn.act{z-index:9;animation:hop .5s infinite alternate}
+@keyframes hop{to{margin-top:-7px}}
+
+/* ---------- 4f. Card game ---------- */
+.cg{width:min(100%,640px);display:flex;flex-direction:column;gap:10px;position:relative}
+.cg-scores{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.cg-opps{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.cg-opp{background:var(--glass);border:1px solid var(--line);border-radius:16px;padding:8px 10px;text-align:center;min-width:110px;transition:box-shadow .2s}
+.cg-opp.on{box-shadow:0 0 0 2px var(--accent),0 0 16px #ffb70366}
+.cg-opp .nm{font-weight:700;font-size:14px}.cg-opp .ct{font-size:12px;color:var(--mute)}
+.fan{display:flex;justify-content:center;margin:6px 0 4px;min-height:40px}
+.cg-table{display:flex;align-items:center;justify-content:center;gap:22px;padding:14px;border-radius:24px;background:radial-gradient(circle,#15803d,#14532d);box-shadow:inset 0 0 40px #0008;border:3px solid #78350f}
+.pile{background:none;border:0;padding:0;position:relative}
+.pile .cnt{position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:#000b;border-radius:999px;font-size:12px;padding:1px 8px;font-weight:700}
+.pile.glow .pc{box-shadow:0 0 0 3px #fde047,0 0 18px 4px #fde047;animation:pulse .6s infinite alternate}
+.suitbadge{position:absolute;right:-12px;top:-12px;background:#fff;color:#111;border-radius:50%;width:34px;height:34px;display:grid;place-items:center;font-size:20px;box-shadow:0 2px 6px #0008;z-index:2}
+.suitbadge.red{color:#dc2626}
+.disc-wrap{position:relative}
+.pc{--cw:clamp(46px,13.5vw,74px);width:var(--cw);height:calc(var(--cw)*1.42);border-radius:calc(var(--cw)*.13);background:#fff;color:#111;position:relative;box-shadow:0 2px 6px #0007;
+  font-weight:800;flex:0 0 auto;user-select:none;transition:transform .15s,box-shadow .15s}
+.pc.red{color:#dc2626}
+.pc .cn{position:absolute;font-size:calc(var(--cw)*.26);line-height:1.05;text-align:center}
+.pc .cn.tl{top:5%;left:7%}.pc .cn.br{bottom:5%;right:7%;transform:rotate(180deg)}
+.pc .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(var(--cw)*.56)}
+.pc.back{background:repeating-linear-gradient(45deg,#4f46e5 0 6px,#6366f1 6px 12px);border:3px solid #fff}
+.pc.sm{--cw:clamp(26px,7vw,34px);border-width:2px}
+.fan .pc+.pc{margin-left:calc(var(--cw)*-.6)}
+.pc.land{animation:land .35s}
+.pc.fresh{animation:land .45s}
+@keyframes land{from{transform:translateY(-30px) rotate(-12deg) scale(1.2);opacity:.2}}
+.hand{display:flex;overflow-x:auto;padding:16px 6px 8px;min-height:calc(clamp(46px,13.5vw,74px)*1.42 + 24px)}
+.hand>.pc:first-child{margin-left:auto}.hand>.pc:last-child{margin-right:auto}
+.hand>.pc+.pc{margin-left:var(--ov,6px)}
+.hand .pc.ok{cursor:pointer;transform:translateY(-12px);box-shadow:0 0 0 3px #fde047,0 6px 14px #0009}
+.hand .pc.no{filter:brightness(.78)}
+.cg-me{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cg-me .who{font-weight:700}
+.last{border:0;border-radius:999px;padding:9px 16px;font-weight:800;background:linear-gradient(180deg,#fb7185,#e11d48);box-shadow:0 3px 0 #9f1239}
+.last:disabled{opacity:.35;box-shadow:none}
+.last.on{background:linear-gradient(180deg,#4ade80,#16a34a);box-shadow:0 3px 0 #166534}
+.cover{position:absolute;left:0;right:0;bottom:0;top:auto;height:calc(clamp(46px,13.5vw,74px)*1.42 + 64px);background:#1b1340f2;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:5;border:1px solid var(--line)}
+.suitpick{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.suitpick button{font-size:44px;border:0;border-radius:16px;background:#fff;padding:10px;color:#111}
+.suitpick button.red{color:#dc2626}
+
+/* ---------- 5. Polish: ambience, themes, textures ---------- */
+.screen,#mute{position:relative;z-index:1}#mute{position:fixed;z-index:60}
+.bgfx{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.bgfx span{position:absolute;bottom:-70px;font-size:var(--s);opacity:.14;animation:rise var(--d) linear infinite;animation-delay:var(--dl)}
+@keyframes rise{to{transform:translateY(-125vh) rotate(360deg)}}
+@keyframes shine{to{background-position:200% center}}
+@keyframes cardin{from{opacity:0;transform:translateY(24px) scale(.94)}}
+.logo{display:inline-block;font-size:60px;line-height:1;animation:bounce 1.1s ease-in-out infinite alternate;filter:drop-shadow(0 8px 10px #0006)}
+.gcard>*:not(.ghost):not(.badge){position:relative;z-index:1}
+.gcard .ghost{position:absolute;right:-8px;bottom:-16px;font-size:92px;opacity:.2;transform:rotate(-14deg);transition:transform .3s}
+.gcard:hover .ghost{transform:rotate(0) scale(1.15)}
+.gcard::before{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,#ffffff40 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s;z-index:2;pointer-events:none}
+.gcard:hover::before{transform:translateX(120%)}
+.gcard:hover .ico{animation:bounce .5s infinite alternate}
+body[data-game=ludo]{background:radial-gradient(900px 600px at 5% -10%,#ef444466,transparent),radial-gradient(900px 600px at 100% 105%,#3b82f666,transparent),radial-gradient(600px 500px at 100% 0,#22c55e44,transparent),linear-gradient(160deg,#2a1240,#0f1b3d);background-attachment:fixed}
+body[data-game=snakes]{background:radial-gradient(900px 600px at 0 0,#22c55e55,transparent),radial-gradient(800px 600px at 100% 100%,#0d948866,transparent),linear-gradient(160deg,#052e2b,#0f1b3d);background-attachment:fixed}
+body[data-game=ttt]{background:radial-gradient(900px 600px at 0 0,#ec489966,transparent),radial-gradient(800px 600px at 100% 100%,#8b5cf666,transparent),linear-gradient(160deg,#2b1048,#12183d);background-attachment:fixed}
+body[data-game=c4]{background:radial-gradient(900px 600px at 0 0,#3b82f666,transparent),radial-gradient(800px 600px at 100% 100%,#06b6d455,transparent),linear-gradient(160deg,#0b1d4a,#0a1230);background-attachment:fixed}
+body[data-game=checkers]{background:radial-gradient(900px 600px at 0 0,#f9731655,transparent),radial-gradient(800px 600px at 100% 100%,#be123c55,transparent),linear-gradient(160deg,#3a1a10,#1a1030);background-attachment:fixed}
+body[data-game=cards]{background:radial-gradient(900px 600px at 0 0,#10b98155,transparent),radial-gradient(800px 600px at 100% 100%,#2563eb55,transparent),linear-gradient(160deg,#062d22,#0f1b3d);background-attachment:fixed}
+.stage>*:first-child{animation:pop .4s}
+.ttt-cell{background:linear-gradient(145deg,#ffffff30,#ffffff10);border:1px solid #ffffff22;text-shadow:0 0 18px currentColor}
+.ttt-cell.X{text-shadow:0 0 22px #f472b6}.ttt-cell.O{text-shadow:0 0 22px #22d3ee}
+.c4{background:linear-gradient(180deg,#3b82f6,#1d4ed8);box-shadow:0 14px 34px #0009,inset 0 2px 0 #fff5}
+.ck-sq.dk{background:repeating-linear-gradient(95deg,#8b5a3c 0 7px,#7b4c31 7px 10px),#8b5a3c;box-shadow:inset 0 0 12px #0004}
+.ck-sq.lt{background:linear-gradient(135deg,#f6e4bd,#ecd2a0)}
+.ck-board{border:8px solid #5b3a1e;box-shadow:0 0 0 3px #3b2412,0 16px 40px #000a}
+.ld-board{box-shadow:0 0 0 4px #ffffff55,0 16px 40px #000b}
+.ld-base{background-image:radial-gradient(circle at 30% 25%,#fff4,transparent 55%)}
+.sl-cell.a{background:linear-gradient(135deg,#fde68a,#fcd34d)}.sl-cell.b{background:linear-gradient(135deg,#a7f3d0,#6ee7b7)}
+.sl-grid{box-shadow:0 0 0 4px #ffffff55,0 16px 40px #000b}
+.sl-svg .snk{transform-box:fill-box;transform-origin:50% 50%;animation:wig 2.4s ease-in-out infinite alternate}
+@keyframes wig{from{transform:skewX(-2.2deg) scaleY(1)}to{transform:skewX(2.2deg) scaleY(1.015)}}
+.cg-table{background:radial-gradient(ellipse at 50% 35%,#1fa04d,#14532d 75%);box-shadow:inset 0 0 50px #000a,0 10px 30px #0008}
+.pc{box-shadow:0 3px 8px #0009,inset 0 0 0 1px #0002}
+.dice{box-shadow:0 5px 0 #9ca3af,0 12px 22px #0007}
+@media (prefers-reduced-motion:reduce){.bgfx,.logo,.snk,.hero h1{animation:none!important}}
+
+/* ---------- 6. Features: themes, tools, rules, effects, landscape ---------- */
+:root{--ck-lt-a:#f6e4bd;--ck-lt-b:#ecd2a0;--ck-dk:#8b5a3c;--ck-dk2:#7b4c31;--c4-a:#3b82f6;--c4-b:#1d4ed8;
+  --sl-a1:#fde68a;--sl-a2:#fcd34d;--sl-b1:#a7f3d0;--sl-b2:#6ee7b7;--felt1:#1fa04d;--felt2:#14532d}
+html[data-theme=neon]{--ck-lt-a:#1e293b;--ck-lt-b:#0f172a;--ck-dk:#4338ca;--ck-dk2:#3730a3;--c4-a:#7c3aed;--c4-b:#4c1d95;
+  --sl-a1:#f0abfc;--sl-a2:#c084fc;--sl-b1:#67e8f9;--sl-b2:#22d3ee;--felt1:#6d28d9;--felt2:#1e1b4b}
+html[data-theme=pastel]{--ck-lt-a:#fdf2f8;--ck-lt-b:#fce7f3;--ck-dk:#f9a8d4;--ck-dk2:#f472b6;--c4-a:#a5b4fc;--c4-b:#818cf8;
+  --sl-a1:#fef3c7;--sl-a2:#fde68a;--sl-b1:#dcfce7;--sl-b2:#bbf7d0;--felt1:#86efac;--felt2:#4ade80}
+.ck-sq.dk{background:repeating-linear-gradient(95deg,var(--ck-dk) 0 7px,var(--ck-dk2) 7px 10px),var(--ck-dk)}
+.ck-sq.lt{background:linear-gradient(135deg,var(--ck-lt-a),var(--ck-lt-b))}
+.c4{background:linear-gradient(180deg,var(--c4-a),var(--c4-b));border-color:var(--c4-b)}
+.sl-cell.a{background:linear-gradient(135deg,var(--sl-a1),var(--sl-a2))}.sl-cell.b{background:linear-gradient(135deg,var(--sl-b1),var(--sl-b2))}
+.cg-table{background:radial-gradient(ellipse at 50% 35%,var(--felt1),var(--felt2) 75%)}
+.bar{padding-right:104px}
+#music{position:fixed;top:max(10px,env(safe-area-inset-top));right:60px;z-index:60;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#0006;backdrop-filter:blur(6px);font-size:19px;display:grid;place-items:center}
+button.chip{color:inherit;cursor:pointer}
+.tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0}.tools:empty{display:none}
+.scoreline{text-align:center;color:var(--accent);font-weight:700;font-size:14px;margin:2px 0}
+.resume{flex-wrap:wrap;display:flex;gap:8px;justify-content:center;align-items:center;margin:6px 0 14px}
+.tog{display:block;width:100%;text-align:left;margin:4px 0;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#0003;font-size:14px}
+.tog.on{background:#16a34a44;border-color:#4ade8088}
+.rules{padding-left:20px;margin:6px 0 4px;line-height:1.5;font-size:15px}.rules li{margin:6px 0}
+.tk-i{display:grid;place-items:center;color:#fff;font-size:calc(var(--bs)/15*.34);font-weight:900;text-shadow:0 1px 2px #000a;line-height:1}
+.trail{position:absolute;width:1.6%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);opacity:.7;animation:fadeout 1s forwards;pointer-events:none;z-index:4}
+@keyframes fadeout{to{opacity:0;transform:translate(-50%,-50%) scale(.3)}}
+.spark{position:absolute;transform:translate(-50%,-50%);font-size:30px;animation:spark .95s forwards;z-index:8;pointer-events:none}
+@keyframes spark{to{transform:translate(-50%,-190%) scale(1.8);opacity:0}}
+.sl-wrap.bite{animation:bite .5s}
+@keyframes bite{20%{transform:translateX(-7px) rotate(-.6deg)}40%{transform:translateX(7px) rotate(.6deg)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.dirbadge{position:absolute;left:-12px;top:-12px;width:30px;height:30px;border-radius:50%;background:#fde047;color:#111;display:grid;place-items:center;font-weight:900;z-index:2;box-shadow:0 2px 6px #0008}
+.pc:focus-visible,.ck-sq:focus-visible,.tk:focus-visible,.c4-col:focus-visible,.gcard:focus-visible,button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+@media (orientation:landscape) and (max-height:560px){
+  .stage{--bs:max(310px,calc(100vh - 130px));flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 20px}
+  .stage .hint{display:none}.turnbar{margin:4px auto 2px;padding:4px 12px}.hero{padding:10px 0 6px}.logo{font-size:36px}
+  .cg{width:min(100%,900px)}
+}
+/* bigger invisible tap area around small Ludo tokens (they are only ~19px on a phone) */
+.tk::after{content:'';position:absolute;inset:-45%;border-radius:50%}
+.tk.can::after{inset:-65%}
+@media (max-width:420px){.bar{gap:6px}.bar h2{font-size:17px}.bar .btn.small{padding:8px 10px}}
+#netbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:140;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 20px);
+  background:#7c2d12f2;color:#fff;border:1px solid #fb923c;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 8px 24px #000a;animation:pop .2s}
+/* online chat: emoji reactions with sounds + push-to-talk voice clips */
+#chatbtn{position:fixed;right:12px;bottom:max(14px,env(safe-area-inset-bottom));z-index:70;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);background:#000a;backdrop-filter:blur(6px);font-size:24px;display:grid;place-items:center;box-shadow:0 6px 18px #0008}
+#chatpanel{position:fixed;right:12px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 58px);z-index:70;width:min(300px,calc(100vw - 24px));padding:12px;border-radius:16px;background:#111a;backdrop-filter:blur(12px);border:1px solid var(--line);box-shadow:0 12px 32px #000a;display:grid;gap:10px;animation:pop .15s}
+#chatpanel .emo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+#chatpanel .emo button{height:48px;border-radius:12px;border:1px solid var(--line);background:#fff1;font-size:26px}
+#chatpanel .emo button:active{transform:scale(.9);background:#fff3}
+#chatpanel .row{display:flex;gap:8px}
+#chatpanel .row .btn{flex:1;min-height:48px}
+#talk{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#talk.rec{background:#dc2626;border-color:#fca5a5;animation:pulse 1s infinite}
+#chatpanel small{opacity:.75;text-align:center}
+#reactions{position:fixed;inset:0;pointer-events:none;z-index:130;overflow:hidden}
+.react{position:absolute;bottom:90px;display:grid;justify-items:center;gap:2px;animation:rise 2.4s ease-out forwards}
+.react b{font-size:46px;filter:drop-shadow(0 4px 6px #0008)}
+.react small{font-size:12px;font-weight:800;background:#000a;color:#fff;padding:2px 8px;border-radius:999px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@keyframes rise{0%{transform:translateY(0) scale(.4);opacity:0}12%{transform:translateY(-30px) scale(1.2);opacity:1}100%{transform:translateY(-55vh) scale(1);opacity:0}}
+@keyframes pulse{50%{box-shadow:0 0 0 8px #dc262644}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* =====================================================================
+   GAME NIGHT — one file, no dependencies.
+
+   HOW THE CODE IS ORGANISED
+     1. Helpers .......... DOM builder h(), RNG, Store (localStorage), Sound (Web Audio)
+     2. UI ............... toast, modal, winner screen + confetti
+     3. Shared classes ... Dice, Game (base class)
+     4. Games ............ one class per game (TicTacToe, ConnectFour, Checkers,
+                           Ludo, SnakesLadders, CardGame)
+     5. Hub .............. menu, setup sheet, launching games
+     6. Boot
+
+   HOW TO ADD A NEW GAME
+     a) class MyGame extends Game { static meta = {...}; start(){...} }
+        - build your DOM inside this.root, read this.players ({name, cpu}),
+          call this.turn(i,'text') to update the turn bar and
+          this.finish(title, sub) when somebody wins (it shows confetti + Play Again).
+        - use `await this.wait(ms)` (not setTimeout) inside async flows so the
+          game stops cleanly when the user leaves, and this.run(fn) to start them.
+     b) add MyGame to the GAMES array just before the Hub section. Done.
+   ===================================================================== */
+
+/* =====================================================================
+   1. HELPERS
+   ===================================================================== */
+const PALETTE = ['#ef4444', '#22c55e', '#eab308', '#3b82f6'];       // red, green, yellow, blue
+const CPU_NAMES = ['Robo', 'Chip', 'Byte'];
+const DEAD = Symbol('game-destroyed');                              // thrown to unwind async flows
+const QS = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+const SPEED = Math.max(1, +QS.get('speed') || 1);                    // ?speed=20 shortens waits (used by tests)
+const SID = QS.get('sid') || '';                                     // namespaces the saved online session (tests run many "phones" in one tab)
+/** Fast-forward: while true every wait is (almost) instant and sound/toasts are off. Used to replay a game after reconnecting. */
+let FF = false, ffN = 0;
+const sleep = ms => FF ? (++ffN % 120 ? Promise.resolve() : new Promise(r => setTimeout(r, 0))) : new Promise(r => setTimeout(r, ms / SPEED));
+/** Game-logic randomness. Online games seed it identically on every client so dice and shuffles match everywhere. */
+const RNG = { f: null,
+  seed(s) { let a = s >>> 0; this.f = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
+  off() { this.f = null; }, next() { return this.f ? this.f() : Math.random(); } };
+const rand = n => Math.floor(RNG.next() * n);
+const crand = n => Math.floor(Math.random() * n);             // cosmetic randomness only (never touches game state)
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/** Tiny DOM builder: h('div',{class:'x',onclick:fn,style:{...}}, child, child...) */
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'style' && typeof v === 'object') {
+      for (const [sk, sv] of Object.entries(v)) sk.startsWith('--') ? e.style.setProperty(sk, sv) : (e.style[sk] = sv);
+    } else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) { if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(c)); }
+  return e;
+}
+
+/** Persistent settings (last game, names, mute...) — every access wrapped in try/catch. */
+const Store = {
+  key: 'gamenight.v1', data: {},
+  load() { try { this.data = JSON.parse(localStorage.getItem(this.key)) || {}; } catch (e) { this.data = {}; } },
+  save() { try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (e) { /* private mode etc. */ } },
+  get(k, d) { return k in this.data ? this.data[k] : d; },
+  set(k, v) { this.data[k] = v; this.save(); }
+};
+
+/** Sound effects synthesised with the Web Audio API (no audio files). */
+const Sound = {
+  ctx: null, muted: false,
+  init() {
+    try {
+      if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) this.ctx = new AC(); }
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { /* audio unavailable */ }
+  },
+  tone(freq, dur = .1, type = 'sine', vol = .15, delay = 0, slideTo = null) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + dur + .03);
+    } catch (e) { /* ignore */ }
+  },
+  play(name) {
+    if (this.muted || FF) return; this.init(); if (!this.ctx) return;
+    switch (name) {
+      case 'dice': for (let i = 0; i < 9; i++) this.tone(280 + Math.random() * 520, .05, 'square', .06, i * .065); break;
+      case 'move': this.tone(560, .07, 'triangle', .14); break;
+      case 'click': this.tone(780, .05, 'sine', .1); break;
+      case 'drop': this.tone(320, .14, 'sine', .16, 0, 120); this.tone(170, .09, 'sine', .16, .25); break;
+      case 'capture': this.tone(430, .3, 'sawtooth', .13, 0, 80); break;
+      case 'card': this.tone(220, .05, 'square', .07); this.tone(340, .05, 'square', .05, .03); break;
+      case 'ladder': [400, 500, 620, 800].forEach((f, i) => this.tone(f, .1, 'triangle', .15, i * .08)); break;
+      case 'snake': this.tone(760, .7, 'sawtooth', .11, 0, 90); break;
+      case 'king': [660, 880, 1100].forEach((f, i) => this.tone(f, .12, 'triangle', .15, i * .09)); break;
+      case 'home': [523, 784, 1047].forEach((f, i) => this.tone(f, .14, 'triangle', .15, i * .08)); break;
+      case 'error': this.tone(140, .18, 'square', .09); break;
+      case 'win': [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, .24, 'triangle', .18, i * .12)); break;
+    }
+  }
+};
+
+/** Optional looping background tune (generative, Web Audio). */
+Sound.musicOn = false; Sound.mt = null;
+Sound.setMusic = function (on) {
+  this.musicOn = on; clearInterval(this.mt); this.mt = null; if (!on) return; this.init();
+  const notes = [261.6, 329.6, 392, 523.3, 392, 329.6, 293.7, 349.2, 440, 587.3, 440, 349.2, 261.6, 392, 329.6, 246.9]; let i = 0;
+  this.mt = setInterval(() => { if (this.muted || !this.ctx) return; const f = notes[i % notes.length]; this.tone(f, .55, 'sine', .04); if (i % 4 === 0) this.tone(f / 2, 1, 'triangle', .045); i++; }, 460);
+};
+
+/* =====================================================================
+   2. UI — toast, modal, winner screen, confetti
+   ===================================================================== */
+const UI = {
+  toasts: null, cv: null,
+  toast(msg, ms = 1700) {
+    if (FF) return;
+    if (!this.toasts) { this.toasts = h('div', { id: 'toasts' }); document.body.append(this.toasts); }
+    while (this.toasts.children.length >= 3) this.toasts.firstChild.remove();
+    const t = h('div', { class: 'toast' }, msg); this.toasts.append(t);
+    setTimeout(() => t.classList.add('out'), ms); setTimeout(() => t.remove(), ms + 400);
+  },
+  /** Show a node in a centred sheet. Returns {close}. */
+  modal(node, { dismiss = true, onClose } = {}) {
+    const ov = h('div', { class: 'overlay' }, h('div', { class: 'sheet' }, node));
+    const api = { el: ov, close: () => { ov.remove(); onClose && onClose(); } };
+    if (dismiss) ov.addEventListener('pointerdown', e => { if (e.target === ov) api.close(); });
+    document.body.append(ov); return api;
+  },
+  /** Winner screen with confetti. opts: {emoji,title,sub,againLabel,onAgain,onMenu} */
+  winner(o) {
+    this.confetti();
+    const m = this.modal(h('div', { class: 'winner' },
+      h('div', { class: 'big' }, o.emoji || '🏆'), h('h3', {}, o.title), o.sub ? h('p', {}, o.sub) : null,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', onclick: () => { m.close(); this.stopConfetti(); o.onAgain && o.onAgain(); } }, o.againLabel || 'Play Again'),
+        h('button', { class: 'btn ghost', onclick: () => { m.close(); this.stopConfetti(); o.onMenu && o.onMenu(); } }, 'Menu')),
+      h('div', { class: 'row', style: { marginTop: '8px' } },
+        h('button', { class: 'btn ghost small', onclick: () => { m.close(); } }, '👀 Look at the board'))
+    ), { dismiss: false });
+    return m;
+  },
+  confetti() {
+    this.stopConfetti();
+    const cv = h('canvas', { class: 'confetti' }); document.body.append(cv); this.cv = cv;
+    const ctx = cv.getContext('2d'); if (!ctx) return;
+    const W = cv.width = innerWidth, H = cv.height = innerHeight;
+    const cols = ['#ef4444', '#22c55e', '#eab308', '#3b82f6', '#ec4899', '#a855f7', '#fff'];
+    const ps = Array.from({ length: 170 }, () => ({
+      x: Math.random() * W, y: -20 - Math.random() * H * .6, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 4,
+      s: 6 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .35, c: cols[crand(cols.length)]
+    }));
+    const t0 = performance.now();
+    const tick = now => {
+      if (!cv.isConnected) return;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of ps) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr; p.vy += .02;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .6); ctx.restore();
+      }
+      if (now - t0 < 5500) requestAnimationFrame(tick); else cv.remove();
+    };
+    requestAnimationFrame(tick);
+  },
+  stopConfetti() { if (this.cv) { this.cv.remove(); this.cv = null; } },
+  closeAll() { document.querySelectorAll('.overlay').forEach(e => e.remove()); this.stopConfetti(); }
+};
+
+/* =====================================================================
+   3. SHARED CLASSES — Dice and Game base class
+   ===================================================================== */
+
+/** Animated six-sided die rendered with CSS pips. Used by Ludo and Snakes & Ladders. */
+class Dice {
+  static PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  constructor(onUser) {
+    this.value = 1; this.onClick = null; this.onUser = onUser || null;
+    this.pips = Array.from({ length: 9 }, () => h('i'));
+    this.el = h('button', { class: 'dice', type: 'button', 'aria-label': 'Roll the dice', onclick: () => { if (this.onUser) this.onUser(); else this.fire(); } }, this.pips);
+    this.show(1); this.enable(false);
+  }
+  /** Trigger a roll request (a local click, or a replayed remote one). */
+  fire() { if (this.onClick) this.onClick(); }
+  show(v) { this.value = v; this.pips.forEach((p, i) => p.classList.toggle('on', Dice.PIPS[v].includes(i))); }
+  setColor(c) { this.el.style.setProperty('--dc', c); }
+  enable(on) { this.el.disabled = !on; this.el.classList.toggle('ready', on); }
+  /** Resolves on the next click of the (enabled) die. */
+  waitClick() { return new Promise(res => { this.onClick = () => { this.onClick = null; res(); }; }); }
+  /** Animated roll; resolves with 1..6. */
+  async roll() {
+    Sound.play('dice'); this.el.classList.add('rolling');
+    for (let i = 0; i < (FF ? 0 : 10); i++) { this.show(1 + crand(6)); await sleep(62); }
+    const v = 1 + rand(6); this.show(v); this.el.classList.remove('rolling'); return v;
+  }
+}
+
+/** Base class every game extends. See "HOW TO ADD A NEW GAME" at the top.
+ *  cfg = {mode, level:'easy'|'medium'|'hard', opts:{}, players:[{name,cpu}], carry:{}, resume:savedState|null}
+ *  Optional hooks: serialize() -> JSON state (enables auto-save/resume); undo via this.tools([...]). */
+class Game {
+  constructor(hub, root, cfg) {
+    this.hub = hub; this.root = root; this.cfg = cfg; this.players = cfg.players; this.dead = false; this.over = false;
+    this.level = cfg.level || 'hard'; this.opts = cfg.opts || {}; this.resume = cfg.resume || null; this.net = cfg.net || null;   // net = online session
+  }
+  /** Does the local device control player i? (always true offline) */
+  isMine(i) { return !this.net || this.net.seat === i; }
+  /** Every human input goes through here. Offline: run it. Online: send it; it runs on ALL clients when echoed back. */
+  ui(k, ...a) {
+    if (!this.net) return this.doInput(k, ...a);
+    if (this.over || !this.isMine(this.cur)) return; if (this.net.dead) return UI.toast('🔌 Reconnecting…'); this.net.input([k, ...a]);
+  }
+  /** Apply one input. Return false if the game isn't ready for it yet (it will be retried), true when consumed. */
+  doInput() { return true; }
+  start() { }
+  destroy() { this.dead = true; }
+  colorOf(i) { return PALETTE[i % 4]; }
+  check() { if (this.dead) throw DEAD; }
+  async wait(ms) { await sleep(ms); this.check(); }
+  /** Start an async flow; swallow the DEAD sentinel thrown when the game is closed. */
+  run(fn) { Promise.resolve().then(fn).catch(e => { if (e !== DEAD) console.error(e); }); }
+  serialize() { return null; }
+  save() { if (this.net || this.over || this.dead) return; const st = this.serialize(); if (st) this.hub.saveGame(st); }
+  tools(list) { this.hub.setTools(list); }
+  addWin(i) { const w = this.cfg.carry.wins || (this.cfg.carry.wins = this.players.map(() => 0)); w[i]++; }
+  showWins() { const w = this.cfg.carry.wins; this.hub.setScore(w ? '🏅 ' + this.players.map((p, i) => `${p.name} ${w[i]}`).join(' · ') : ''); }
+  turn(i, extra) { const p = this.players[i]; this.hub.setTurn(this.net && this.isMine(i) ? 'You' : p.name + (p.cpu ? ' 🤖' : ''), this.colorOf(i), extra); this.save(); }
+  toast(m) { UI.toast(m); }
+  /** End the game: sound, turn bar, then the winner overlay with confetti. o.winner = player index (for the win tally). */
+  finish(title, sub, o = {}) {
+    if (this.dead) return; this.over = true; this.hub.clearSave();
+    if (o.winner != null) this.addWin(o.winner); this.showWins();
+    this.fin = { title, sub, o }; Sound.play('win'); this.hub.setTurn('Game over', '#fbbf24', '');
+    if (!FF) setTimeout(() => this.showWinner(), (o.delay ?? 700) / SPEED);                  // (while catching up after a reconnect it is shown when the catch-up ends)
+  }
+  showWinner() {
+    if (this.dead || !this.fin) return; const { title, sub, o } = this.fin;
+    UI.winner({ emoji: o.emoji || '🏆', title, sub, againLabel: o.againLabel, onAgain: o.onAgain || (() => this.hub.restart()), onMenu: () => this.hub.toMenu() });
+  }
+}
+
+/* =====================================================================
+   4a. TIC-TAC-TOE  (unbeatable minimax AI)
+   ===================================================================== */
+const TTT_LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+function tttWinner(b) { for (const l of TTT_LINES) if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { w: b[l[0]], line: l }; return null; }
+/** Full-depth minimax: score from `me`'s point of view; faster wins / slower losses preferred. */
+function tttMinimax(b, turn, me, depth) {
+  const w = tttWinner(b); if (w) return w.w === me ? 10 - depth : depth - 10;
+  if (b.every(Boolean)) return 0;
+  const maxing = turn === me; let best = maxing ? -Infinity : Infinity;
+  for (let i = 0; i < 9; i++) if (!b[i]) {
+    b[i] = turn; const s = tttMinimax(b, turn === 'X' ? 'O' : 'X', me, depth + 1); b[i] = null;
+    best = maxing ? Math.max(best, s) : Math.min(best, s);
+  }
+  return best;
+}
+class TicTacToe extends Game {
+  static meta = { id: 'ttt', name: 'Tic-Tac-Toe', emoji: '❌', tag: 'Try to beat the unbeatable AI', min: 2, max: 2, c1: '#ec4899', c2: '#8b5cf6',
+    rules: ['Take turns placing X and O on a 3×3 grid.', 'Get three in a row (across, down or diagonal) to win.', 'Hard computer never loses — a draw is a good result!', 'Use ↩ Undo to take back your last move.'] };
+  colorOf(i) { return i ? '#22d3ee' : '#f472b6'; }
+  start() {
+    const c = this.cfg.carry, r = this.resume; c.round = c.round || 0; this.mark = ['X', 'O']; this.busy = false;
+    if (r) { this.b = r.b.slice(); this.cur = r.cur; this.moves = r.moves.slice(); }
+    else { this.b = Array(9).fill(null); this.moves = []; this.cur = c.round % 2; c.round++; }       // alternate who starts
+    this.cells = Array.from({ length: 9 }, (_, i) => h('button', { class: 'ttt-cell', 'aria-label': 'Cell ' + (i + 1), onclick: () => this.ui('p', i) }));
+    this.b.forEach((m, i) => m && this.paint(i, m));
+    this.root.append(h('div', { class: 'ttt' }, this.cells), h('p', { class: 'hint' }, `${this.players[0].name} is ❌ · ${this.players[1].name} is ⭕`));
+    if (!this.net) this.tools([{ label: '↩ Undo', fn: () => this.undo() }]);
+    this.run(() => this.next());
+  }
+  doInput(k, i) { if (this.busy || this.over) return false; this.click(i); return true; }
+  serialize() { return { b: this.b, cur: this.cur, moves: this.moves }; }
+  paint(i, m) { const c = this.cells[i]; c.textContent = m; c.className = 'ttt-cell ' + m; c.disabled = true; }
+  clear(i) { const c = this.cells[i]; c.textContent = ''; c.className = 'ttt-cell'; c.disabled = false; }
+  async next() {
+    if (this.over) return; this.turn(this.cur, this.mark[this.cur] + ' to move');
+    if (this.players[this.cur].cpu) { this.busy = true; await this.wait(550); const mv = this.best(); this.busy = false; this.place(mv); }
+  }
+  click(i) { if (this.over || this.busy || this.b[i] || this.players[this.cur].cpu) return; this.place(i); }
+  place(i) {
+    const m = this.mark[this.cur]; this.b[i] = m; this.moves.push({ i, p: this.cur }); this.paint(i, m); Sound.play('move');
+    const w = tttWinner(this.b);
+    if (w) { w.line.forEach(k => this.cells[k].classList.add('win')); this.cells.forEach(x => x.disabled = true); const p = this.players[this.cur]; return this.finish(p.cpu ? `${p.name} wins 🤖` : `${p.name} wins!`, 'Three in a row!', { emoji: p.cpu ? '🤖' : '🎉', winner: this.cur }); }
+    if (this.b.every(Boolean)) return this.finish("It's a draw", 'Nobody could break through.', { emoji: '🤝' });
+    this.cur ^= 1; this.run(() => this.next());
+  }
+  /** Take back your last move (and the computer's reply). */
+  undo() {
+    if (this.over || this.busy || !this.moves.length) return;
+    let n = 1; if (this.players[this.moves[this.moves.length - 1].p].cpu) { if (this.moves.length < 2) return Sound.play('error'); n = 2; }
+    let m; for (let k = 0; k < n; k++) { m = this.moves.pop(); this.b[m.i] = null; this.clear(m.i); }
+    this.cur = m.p; Sound.play('click'); this.run(() => this.next());
+  }
+  best() {
+    const me = this.mark[this.cur], b = this.b, free = b.map((x, i) => x ? -1 : i).filter(i => i >= 0);
+    if (this.level === 'easy' || (this.level === 'medium' && Math.random() < .5)) return free[rand(free.length)];   // lets you win sometimes
+    if (free.length === 9) return [0, 2, 6, 8, 4][rand(5)];            // opening move: any corner/centre is optimal
+    let bestS = -Infinity, mv = [];
+    for (const i of free) {
+      b[i] = me; const s = tttMinimax(b, me === 'X' ? 'O' : 'X', me, 1); b[i] = null;
+      if (s > bestS) { bestS = s; mv = [i]; } else if (s === bestS) mv.push(i);
+    }
+    return mv[rand(mv.length)];
+  }
+}
+
+/* =====================================================================
+   4b. CONNECT FOUR  (alpha-beta lookahead AI)
+   ===================================================================== */
+const C4R = 6, C4C = 7, C4D = [[0, 1], [1, 0], [1, 1], [1, -1]];
+function c4Row(g, c) { for (let r = C4R - 1; r >= 0; r--) if (g[r][c] == null) return r; return -1; }
+/** Returns {p, cells:[[r,c]x4]} if someone has four in a row, else null. */
+function c4Find(g) {
+  for (let r = 0; r < C4R; r++) for (let c = 0; c < C4C; c++) {
+    const p = g[r][c]; if (p == null) continue;
+    for (const [dr, dc] of C4D) {
+      const cells = [[r, c]];
+      for (let k = 1; k < 4; k++) { const rr = r + dr * k, cc = c + dc * k; if (rr < 0 || rr >= C4R || cc < 0 || cc >= C4C || g[rr][cc] !== p) break; cells.push([rr, cc]); }
+      if (cells.length === 4) return { p, cells };
+    }
+  }
+  return null;
+}
+/** Heuristic: centre control + open 2s/3s in every 4-window. */
+function c4Eval(g, me) {
+  const op = 1 - me; let s = 0;
+  for (let r = 0; r < C4R; r++) { if (g[r][3] === me) s += 3; else if (g[r][3] === op) s -= 3; }
+  for (let r = 0; r < C4R; r++) for (let c = 0; c < C4C; c++) for (const [dr, dc] of C4D) {
+    const er = r + 3 * dr, ec = c + 3 * dc; if (er < 0 || er >= C4R || ec < 0 || ec >= C4C) continue;
+    let m = 0, o = 0;
+    for (let k = 0; k < 4; k++) { const v = g[r + dr * k][c + dc * k]; if (v === me) m++; else if (v === op) o++; }
+    if (m && o) continue;
+    if (m === 3) s += 5; else if (m === 2) s += 2;
+    if (o === 3) s -= 6; else if (o === 2) s -= 2;
+  }
+  return s;
+}
+function c4Search(g, depth, alpha, beta, maxing, me) {
+  const f = c4Find(g); if (f) return { s: (f.p === me ? 1e6 : -1e6) + (f.p === me ? depth : -depth) };
+  const cols = [3, 2, 4, 1, 5, 0, 6].filter(c => g[0][c] == null);
+  if (!cols.length) return { s: 0 }; if (depth === 0) return { s: c4Eval(g, me) };
+  let best = { s: maxing ? -Infinity : Infinity, c: cols[0] };
+  for (const c of cols) {
+    const r = c4Row(g, c); g[r][c] = maxing ? me : 1 - me;
+    const res = c4Search(g, depth - 1, alpha, beta, !maxing, me); g[r][c] = null;
+    if (maxing) { if (res.s > best.s) best = { s: res.s, c }; alpha = Math.max(alpha, best.s); }
+    else { if (res.s < best.s) best = { s: res.s, c }; beta = Math.min(beta, best.s); }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+class ConnectFour extends Game {
+  static meta = { id: 'c4', name: 'Connect Four', emoji: '🟡', tag: 'Drop discs, line up four', min: 2, max: 2, c1: '#3b82f6', c2: '#06b6d4',
+    rules: ['Tap a column to drop a disc; it falls to the lowest free slot.', 'Connect four of your colour in a row — across, down or diagonally.', 'Computer skill sets how many moves it looks ahead.', 'Use ↩ Undo to take back your last move.'] };
+  colorOf(i) { return i ? '#facc15' : '#ef4444'; }
+  start() {
+    const c = this.cfg.carry, r = this.resume; c.round = c.round || 0; this.busy = false;
+    if (r) { this.g = r.g.map(row => row.slice()); this.cur = r.cur; this.moves = r.moves.slice(); }
+    else { this.g = Array.from({ length: C4R }, () => Array(C4C).fill(null)); this.moves = []; this.cur = c.round % 2; c.round++; }
+    this.cellEls = Array.from({ length: C4R }, () => Array(C4C));
+    const cols = [];
+    for (let c = 0; c < C4C; c++) {
+      const col = h('div', { class: 'c4-col', role: 'button', tabindex: 0, 'aria-label': 'Drop in column ' + (c + 1), onclick: () => this.ui('c', c),
+        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.ui('c', c); } } });
+      for (let r = 0; r < C4R; r++) {
+        const cell = h('div', { class: 'c4-cell' }); this.cellEls[r][c] = cell; col.append(cell);
+        if (this.g[r][c] != null) cell.append(h('div', { class: 'disc p' + this.g[r][c], style: { '--from': 1, animation: 'none' } }));
+      }
+      cols.push(col);
+    }
+    this.root.append(h('div', { class: 'c4' }, cols), h('p', { class: 'hint' }, `${this.players[0].name} 🔴 · ${this.players[1].name} 🟡 — tap a column to drop`));
+    if (!this.net) this.tools([{ label: '↩ Undo', fn: () => this.undo() }]);
+    this.run(() => this.next());
+  }
+  doInput(k, c) { if (this.busy || this.over) return false; this.click(c); return true; }
+  serialize() { return { g: this.g, cur: this.cur, moves: this.moves }; }
+  cpuCol() {
+    const valid = [0, 1, 2, 3, 4, 5, 6].filter(c => this.g[0][c] == null);
+    if (this.level === 'easy' && Math.random() < .4) return valid[rand(valid.length)];
+    const depth = this.level === 'easy' ? 2 : this.level === 'medium' ? 3 : 5;
+    return c4Search(this.g, depth, -Infinity, Infinity, true, this.cur).c;
+  }
+  async next() {
+    if (this.over) return; this.turn(this.cur, this.cur ? '🟡' : '🔴');
+    if (this.players[this.cur].cpu) { this.busy = true; await this.wait(600); await this.drop(this.cpuCol()); }
+  }
+  click(c) { if (this.over || this.busy || this.players[this.cur].cpu) return; this.busy = true; this.run(() => this.drop(c)); }
+  async drop(c) {
+    const r = c4Row(this.g, c); if (r < 0) { Sound.play('error'); this.busy = false; return; }
+    this.busy = true; const p = this.cur; this.g[r][c] = p; this.moves.push({ r, c, p });
+    this.cellEls[r][c].append(h('div', { class: 'disc p' + p, style: { '--from': r + 1 } }));
+    Sound.play('drop'); await this.wait(300 + r * 65);
+    const f = c4Find(this.g);
+    if (f) { f.cells.forEach(([rr, cc]) => this.cellEls[rr][cc].classList.add('win')); const pl = this.players[p]; return this.finish(`${pl.name} wins!`, 'Four in a row!', { emoji: pl.cpu ? '🤖' : '🎉', winner: p }); }
+    if (this.g[0].every(x => x != null)) return this.finish("It's a draw", 'The board is full.', { emoji: '🤝' });
+    this.cur = 1 - p; this.busy = false; this.run(() => this.next());
+  }
+  undo() {
+    if (this.over || this.busy || !this.moves.length) return;
+    let n = 1; if (this.players[this.moves[this.moves.length - 1].p].cpu) { if (this.moves.length < 2) return Sound.play('error'); n = 2; }
+    let m; for (let k = 0; k < n; k++) { m = this.moves.pop(); this.g[m.r][m.c] = null; this.cellEls[m.r][m.c].replaceChildren(); }
+    this.cur = m.p; Sound.play('click'); this.run(() => this.next());
+  }
+}
+
+/* =====================================================================
+   4c. CHECKERS  (forced captures, multi-jumps, kings, minimax AI)
+   Board = array of 64; null | {p:0|1, k:bool}. Player 0 (red) starts at the bottom.
+   A "move" = {from, path:[landing squares...], caps:[captured squares...]} (caps[k] taken when landing on path[k]).
+   ===================================================================== */
+const ckDirs = (p, king) => king ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] : p === 0 ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+/** Generate all legal moves for player p. If any capture exists, only captures are returned. */
+function ckGen(board, p) {
+  const jumps = [], simples = [];
+  for (let i = 0; i < 64; i++) {
+    const pc = board[i]; if (!pc || pc.p !== p) continue;
+    const walk = (r, c, path, caps) => {
+      let found = false;
+      for (const [dr, dc] of ckDirs(p, pc.k)) {
+        const lr = r + 2 * dr, lc = c + 2 * dc; if (lr < 0 || lr > 7 || lc < 0 || lc > 7) continue;
+        const mi = (r + dr) * 8 + c + dc, li = lr * 8 + lc, mp = board[mi];
+        if (!mp || mp.p === p || caps.includes(mi)) continue;
+        if (board[li] && li !== i) continue;                         // landing must be empty (start square counts as empty)
+        found = true;
+        const np = [...path, li], nc = [...caps, mi];
+        if (!pc.k && ((p === 0 && lr === 0) || (p === 1 && lr === 7))) jumps.push({ from: i, path: np, caps: nc }); // promotion ends the turn
+        else walk(lr, lc, np, nc);
+      }
+      if (!found && path.length) jumps.push({ from: i, path, caps });
+    };
+    walk(i >> 3, i & 7, [], []);
+    for (const [dr, dc] of ckDirs(p, pc.k)) {
+      const nr = (i >> 3) + dr, nc = (i & 7) + dc;
+      if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && !board[nr * 8 + nc]) simples.push({ from: i, path: [nr * 8 + nc], caps: [] });
+    }
+  }
+  return jumps.length ? jumps : simples;
+}
+const ckClone = b => b.map(x => x && { p: x.p, k: x.k });
+function ckApply(b, mv) {
+  const pc = b[mv.from]; b[mv.from] = null; for (const c of mv.caps) b[c] = null;
+  const last = mv.path[mv.path.length - 1]; b[last] = pc;
+  if (!pc.k && ((pc.p === 0 && (last >> 3) === 0) || (pc.p === 1 && (last >> 3) === 7))) pc.k = true;
+}
+function ckEval(b, me) {
+  let s = 0;
+  for (let i = 0; i < 64; i++) {
+    const pc = b[i]; if (!pc) continue; const r = i >> 3, c = i & 7, adv = pc.p === 0 ? 7 - r : r;
+    let v = pc.k ? 175 : 100 + adv * 4; if (r > 1 && r < 6 && c > 1 && c < 6) v += 3;
+    s += pc.p === me ? v : -v;
+  }
+  return s;
+}
+function ckSearch(b, p, depth, alpha, beta, me) {
+  const mv = ckGen(b, p); if (!mv.length) return p === me ? -1e5 - depth : 1e5 + depth;
+  if (depth === 0) return ckEval(b, me);
+  const max = p === me; let best = max ? -Infinity : Infinity;
+  for (const m of mv) {
+    const nb = ckClone(b); ckApply(nb, m); const s = ckSearch(nb, 1 - p, depth - 1, alpha, beta, me);
+    if (max) { if (s > best) best = s; if (best > alpha) alpha = best; } else { if (s < best) best = s; if (best < beta) beta = best; }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+class Checkers extends Game {
+  static meta = { id: 'checkers', name: 'Checkers', emoji: '🔴', tag: 'Forced jumps, kings, multi-captures', min: 2, max: 2, c1: '#f97316', c2: '#be123c',
+    rules: ['Red moves up, white moves down, diagonally on the dark squares.', 'If you can jump an enemy piece you MUST — and keep jumping if you can.', 'Reach the far row to become a king 👑 (moves both ways).', 'Capture or block every enemy piece to win.', 'Tap a piece (they pulse), then a green dot. ↩ Undo takes back your last turn.'] };
+  colorOf(i) { return i ? '#e2e8f0' : '#ef4444'; }
+  start() {
+    const r = this.resume; this.board = Array(64).fill(null); this.cur = r ? r.cur : 0; this.busy = false; this.quiet = r ? r.quiet : 0; this.hist = [];
+    this.sqs = Array.from({ length: 64 }, (_, i) => {
+      const dark = (((i >> 3) + (i & 7)) % 2) === 1;
+      return h('div', { class: 'ck-sq ' + (dark ? 'dk' : 'lt'), role: dark ? 'button' : null, tabindex: dark ? 0 : null, 'aria-label': dark ? 'Square ' + ((i >> 3) + 1) + ',' + ((i & 7) + 1) : null,
+        onclick: () => this.ui('s', i), onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.ui('s', i); } } });
+    });
+    this.layer = h('div', { class: 'ck-layer' });
+    this.root.append(h('div', { class: 'ck-board' }, this.sqs, this.layer),
+      h('p', { class: 'hint' }, `${this.players[0].name} 🔴 moves up · ${this.players[1].name} ⚪ moves down · captures are mandatory`));
+    for (let i = 0; i < 64; i++) {
+      const rr = i >> 3, c = i & 7; if ((rr + c) % 2 === 0) continue; let pc = null;
+      if (r) { const sv = r.board[i]; if (sv) pc = { p: sv.p, k: sv.k }; } else if (rr < 3 || rr > 4) pc = { p: rr < 3 ? 1 : 0, k: false };
+      if (!pc) continue;
+      pc.el = h('div', { class: 'ck-pc p' + pc.p + (pc.k ? ' king' : '') }, h('span', { class: 'crown' }, '👑'));
+      this.board[i] = pc; this.put(pc, i); this.layer.append(pc.el);
+    }
+    if (!this.net) this.tools([{ label: '↩ Undo', fn: () => this.undo() }]);
+    this.beginTurn();
+  }
+  doInput(k, i) { if (this.busy || this.over) return false; this.click(i); return true; }
+  serialize() { return { board: this.board.map(pc => pc && { p: pc.p, k: pc.k }), cur: this.cur, quiet: this.quiet }; }
+  put(pc, i) { pc.el.style.left = (i & 7) * 12.5 + '%'; pc.el.style.top = (i >> 3) * 12.5 + '%'; }
+  snap() { return { cells: this.board.map(pc => pc && { pc, k: pc.k }), cur: this.cur, quiet: this.quiet }; }
+  restoreSnap(sn) {
+    this.layer.replaceChildren(); this.board.fill(null);
+    sn.cells.forEach((c, i) => { if (!c) return; const pc = c.pc; pc.k = c.k; pc.el.classList.toggle('king', pc.k); pc.el.classList.remove('cap'); this.board[i] = pc; this.put(pc, i); this.layer.append(pc.el); });
+    this.cur = sn.cur; this.quiet = sn.quiet;
+  }
+  /** Take back to the start of your previous turn (skipping the computer's turn). */
+  undo() {
+    if (this.over || this.busy || this.step > 0) return;
+    let k = this.hist.length - 2; while (k >= 0 && this.players[this.hist[k].cur].cpu) k--;
+    if (k < 0) { Sound.play('error'); return UI.toast('Nothing to undo yet'); }
+    const sn = this.hist[k]; this.hist.length = k; this.restoreSnap(sn); Sound.play('click'); this.beginTurn();
+  }
+  beginTurn() {
+    this.legal = ckGen(this.board, this.cur); this.movable = new Set(this.legal.map(m => m.from));
+    this.sel = null; this.cands = []; this.step = 0; this.hist.push(this.snap()); this.paint();
+    if (!this.legal.length) { const w = this.players[1 - this.cur]; return this.finish(`${w.name} wins!`, `${this.players[this.cur].name} has no moves left.`, { emoji: w.cpu ? '🤖' : '🎉', winner: 1 - this.cur }); }
+    this.turn(this.cur, this.legal[0].caps.length ? 'Capture is mandatory!' : 'Your move');
+    if (this.players[this.cur].cpu) this.run(() => this.cpuMove());
+  }
+  targets() { return new Set(this.cands.map(m => m.path[this.step])); }
+  paint() {
+    const human = !this.players[this.cur].cpu && this.isMine(this.cur), tg = this.sel != null ? this.targets() : new Set();
+    this.sqs.forEach((sq, i) => {
+      sq.classList.toggle('mv', human && this.sel == null && this.step === 0 && this.movable.has(i) && !this.over);
+      sq.classList.toggle('sel', this.sel === i); sq.classList.toggle('tg', human && tg.has(i));
+    });
+  }
+  click(i) {
+    if (this.over || this.busy || this.players[this.cur].cpu) return;
+    if (this.step > 0) { if (this.targets().has(i)) { this.busy = true; this.run(() => this.advance(i)); } return; }   // mid multi-jump: only landing squares
+    const pc = this.board[i];
+    if (pc && pc.p === this.cur) {
+      if (this.movable.has(i)) { this.sel = i; this.cands = this.legal.filter(m => m.from === i); Sound.play('click'); this.paint(); }
+      else { Sound.play('error'); UI.toast(this.legal[0].caps.length ? 'You must make a capture!' : 'That piece is blocked'); }
+      return;
+    }
+    if (this.sel != null && this.targets().has(i)) { this.busy = true; this.run(() => this.advance(i)); }
+    else { this.sel = null; this.cands = []; this.paint(); }
+  }
+  /** Human: take one step (a slide or a single jump) of the chosen move. */
+  async advance(i) {
+    this.busy = true; this.cands = this.cands.filter(m => m.path[this.step] === i);
+    const mv = this.cands[0], from = this.step ? mv.path[this.step - 1] : mv.from;
+    await this.hop(from, i, mv.caps[this.step]); this.step++;
+    if (mv.path.length > this.step) { this.sel = i; this.busy = false; this.paint(); UI.toast('Keep jumping!'); return; }
+    await this.finishMove(mv);
+  }
+  async hop(from, to, cap) {
+    const pc = this.board[from]; this.board[from] = null; this.board[to] = pc; this.put(pc, to); Sound.play('move');
+    if (cap != null) { const v = this.board[cap]; this.board[cap] = null; v.el.classList.add('cap'); setTimeout(() => { if (v.el.classList.contains('cap')) v.el.remove(); }, 380); Sound.play('capture'); }
+    await this.wait(cap != null ? 400 : 300);
+  }
+  async finishMove(mv) {
+    const last = mv.path[mv.path.length - 1], pc = this.board[last], wasKing = pc.k;
+    if (!pc.k && ((pc.p === 0 && (last >> 3) === 0) || (pc.p === 1 && (last >> 3) === 7))) { pc.k = true; pc.el.classList.add('king'); Sound.play('king'); UI.toast('👑 King me!'); }
+    if (mv.caps.length || !wasKing) this.quiet = 0; else this.quiet++;
+    this.sel = null; this.cands = []; this.step = 0; this.paint();
+    if (this.quiet >= 40) return this.finish("It's a draw", 'No progress for 40 moves.', { emoji: '🤝' });
+    this.cur = 1 - this.cur; this.busy = false; this.beginTurn();
+  }
+  async cpuMove() {
+    this.busy = true; await this.wait(650);
+    const me = this.cur, lv = this.level; let pool = this.legal;
+    if (!(lv === 'easy' && Math.random() < .45)) {                    // easy sometimes plays a random legal move
+      const depth = lv === 'hard' ? 3 : lv === 'medium' ? 1 : 0; let best = -Infinity; pool = [];
+      for (const mv of this.legal) {
+        const b = ckClone(this.board); ckApply(b, mv); const s = ckSearch(b, 1 - me, depth, -Infinity, Infinity, me);
+        if (s > best) { best = s; pool = [mv]; } else if (s === best) pool.push(mv);
+      }
+    }
+    const mv = pool[rand(pool.length)]; this.sel = mv.from; this.paint(); await this.wait(250);
+    let from = mv.from; for (let s = 0; s < mv.path.length; s++) { await this.hop(from, mv.path[s], mv.caps[s]); from = mv.path[s]; }
+    await this.finishMove(mv);
+  }
+}
+
+/* =====================================================================
+   4d. LUDO
+   Board is 15x15. TRACK = the 52 shared squares clockwise as [row,col].
+   Colours: 0 red (top-left), 1 green (top-right), 2 yellow (bottom-right), 3 blue (bottom-left).
+   Token progress `pos`: -1 base · 0..50 main track (0 = own start square)
+                         51..55 home column · 56 centre (finished).
+   Global square of a token = (ST[colour] + pos) % 52.
+   ===================================================================== */
+const LD_SEG = (r, c, dr, dc, n) => Array.from({ length: n }, (_, i) => [r + dr * i, c + dc * i]);
+const LD_TRACK = [...LD_SEG(6, 0, 0, 1, 6), ...LD_SEG(5, 6, -1, 0, 6), ...LD_SEG(0, 7, 0, 1, 2), ...LD_SEG(1, 8, 1, 0, 5),
+  ...LD_SEG(6, 9, 0, 1, 6), ...LD_SEG(7, 14, 1, 0, 2), ...LD_SEG(8, 13, 0, -1, 5), ...LD_SEG(9, 8, 1, 0, 6),
+  ...LD_SEG(14, 7, 0, -1, 2), ...LD_SEG(13, 6, -1, 0, 5), ...LD_SEG(8, 5, 0, -1, 6), [7, 0]];
+const ldRot = ([r, c], k) => { for (let i = 0; i < k; i++) [r, c] = [c, 14 - r]; return [r, c]; };   // rotate 90° clockwise k times
+const LD_HC = [0, 1, 2, 3].map(k => [1, 2, 3, 4, 5].map(c => ldRot([7, c], k)));                    // home columns per colour
+const LD_ST = [1, 14, 27, 40];                                                                      // start index of each colour
+const LD_SAFE = new Set([...LD_ST, ...LD_ST.map(s => s + 8)]);                                      // start squares + stars
+const LD_BASE = [[0, 0], [9, 0], [9, 9], [0, 9]];                                                   // base origin [x,y]
+const LD_COL = [{ n: 'Red', c: '#ef4444', e: '🔴' }, { n: 'Green', c: '#22c55e', e: '🟢' }, { n: 'Yellow', c: '#eab308', e: '🟡' }, { n: 'Blue', c: '#3b82f6', e: '🔵' }];
+const LD_SYM = ['▲', '■', '●', '◆'];                                                                 // shape per colour (colour-blind friendly)
+const ldCell = (ci, pos) => pos <= 50 ? LD_TRACK[(LD_ST[ci] + pos) % 52] : LD_HC[ci][pos - 51];
+
+class Ludo extends Game {
+  static meta = { id: 'ludo', name: 'Ludo', emoji: '🎲', tag: 'Roll a 6 to start, race home', min: 2, max: 4, c1: '#ef4444', c2: '#f59e0b',
+    rules: ['Roll a 6 to bring a token out of your base.', 'A 6 gives you another roll — but three 6s in a row lose your turn.', 'Land on an opponent (not on a ★ safe square) to send it back to base.',
+      'Two of your tokens on one square form a block that opponents cannot land on or jump over (optional rule).', 'Reach the centre with an exact roll. First to bring all 4 tokens home wins.', 'Computer skill: Easy plays randomly; Medium/Hard capture, escape danger and use safe squares.'],
+    opts: [{ k: 'blocks', label: 'Blocks (stacked tokens can’t be passed)', def: true }, { k: 'bonus', label: 'Extra turn after a capture or reaching home', def: false }] };
+  colorOf(i) { return LD_COL[this.colors[i]].c; }
+  start() {
+    const n = this.players.length;
+    this.colors = n === 2 ? [0, 2] : n === 3 ? [0, 1, 2] : [0, 1, 2, 3];
+    this.cur = 0; this.sixes = 0; this.pick = null; this.dice = new Dice(() => this.ui('d'));
+    this.tok = this.players.map((_, p) => Array.from({ length: 4 }, (_, ti) => {
+      const tk = { p, ci: this.colors[p], ti, pos: -1, vpos: -1 };
+      tk.el = h('div', { class: 'tk c' + tk.ci, role: 'button', tabindex: 0, 'aria-label': `${LD_COL[tk.ci].n} token ${ti + 1}`, onclick: () => this.ui('t', tk.p, tk.ti),
+        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.ui('t', tk.p, tk.ti); } } }, h('i', { class: 'tk-i' }, LD_SYM[tk.ci])); return tk;
+    }));
+    this.all = this.tok.flat();
+    if (this.resume) { this.tok.forEach((a, p) => a.forEach((t, ti) => { t.pos = t.vpos = this.resume.tok[p][ti]; })); this.cur = this.resume.cur; }
+    this.info = h('div', { class: 'info' }, ''); this.roster = h('div', { class: 'chips' });
+    this.tokLayer = h('div', { class: 'ld-tokens' }, this.all.map(t => t.el));
+    this.root.append(this.buildBoard(), h('div', { class: 'dicebar' }, this.dice.el, this.info), this.roster,
+      h('p', { class: 'hint' }, '6 to leave base · 6 = roll again (three 6s lose the turn) · ★ squares are safe · exact roll to finish'));
+    this.layout(); this.updateRoster(); this.run(() => this.loop());
+  }
+  buildBoard() {
+    const bd = h('div', { class: 'ld-board' });
+    const areas = [[1, 1], [1, 10], [10, 10], [10, 1]];
+    for (let ci = 0; ci < 4; ci++) {
+      const [r, c] = areas[ci];
+      bd.append(h('div', { class: 'ld-base c' + ci + (this.colors.includes(ci) ? '' : ' off'), style: { gridArea: `${r}/${c}/${r + 6}/${c + 6}` } },
+        h('div', { class: 'ld-bin' }, h('i'), h('i'), h('i'), h('i'))));
+    }
+    bd.append(h('div', { class: 'ld-center', style: { gridArea: '7/7/10/10' }, html:
+      '<svg viewBox="0 0 3 3" preserveAspectRatio="none"><polygon points="0,0 0,3 1.5,1.5" fill="#ef4444"/><polygon points="0,0 3,0 1.5,1.5" fill="#22c55e"/>' +
+      '<polygon points="3,0 3,3 1.5,1.5" fill="#eab308"/><polygon points="0,3 3,3 1.5,1.5" fill="#3b82f6"/></svg>' }));
+    const key = new Map();
+    LD_TRACK.forEach(([r, c], i) => key.set(r + ',' + c, { i }));
+    LD_HC.forEach((arr, ci) => arr.forEach(([r, c]) => key.set(r + ',' + c, { home: ci })));
+    for (let r = 0; r < 15; r++) for (let c = 0; c < 15; c++) {
+      const k = key.get(r + ',' + c); if (!k) continue; let cls = 'ld-cell';
+      if (k.home != null) cls += ' home c' + k.home;
+      else { if (LD_SAFE.has(k.i)) cls += ' safe'; const si = LD_ST.indexOf(k.i); if (si >= 0) cls += ' st c' + si; }
+      bd.append(h('div', { class: cls, style: { gridArea: `${r + 1}/${c + 1}` } }));
+    }
+    bd.append(this.tokLayer); return bd;
+  }
+  /** Pixel position (in 15x15 board units) of a token's *visual* position. */
+  coord(tk) {
+    const v = tk.vpos;
+    if (v < 0) { const [ox, oy] = LD_BASE[tk.ci], sp = [[2, 2], [4, 2], [2, 4], [4, 4]][tk.ti]; return [ox + sp[0], oy + sp[1]]; }
+    if (v <= 55) { const [r, c] = ldCell(tk.ci, v); return [c + .5, r + .5]; }
+    const s = (tk.ti - 1.5) * .2; return [[6.9, 7.5 + s], [7.5 + s, 6.9], [8.1, 7.5 + s], [7.5 + s, 8.1]][tk.ci];
+  }
+  /** Place every token; tokens sharing a square are fanned out, same-colour stacks get a block ring. */
+  layout() {
+    const groups = new Map();
+    for (const tk of this.all) {
+      [tk._x, tk._y] = this.coord(tk);
+      if (tk.vpos >= 0 && tk.vpos <= 55) { const k = tk._x + ',' + tk._y; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(tk); }
+    }
+    const grouped = new Set();
+    for (const g of groups.values()) {
+      const n = g.length, same = n > 1 && g.every(t => t.p === g[0].p);
+      g.forEach((tk, j) => {
+        grouped.add(tk); let dx = 0, dy = 0, s = 1;
+        if (n === 2) { dx = (j ? .2 : -.2); s = .78; }
+        else if (n === 3) { [dx, dy] = [[-.2, -.15], [.2, -.15], [0, .2]][j]; s = .7; }
+        else if (n >= 4) { const a = j / n * Math.PI * 2; dx = Math.cos(a) * .26; dy = Math.sin(a) * .26; s = n === 4 ? .62 : .55; }
+        this.setTok(tk, tk._x + dx, tk._y + dy, s, same);
+      });
+    }
+    for (const tk of this.all) if (!grouped.has(tk)) this.setTok(tk, tk._x, tk._y, tk.vpos > 55 ? .6 : 1, false);
+  }
+  setTok(tk, x, y, s, blk) {
+    const e = tk.el; e.style.left = x / 15 * 100 + '%'; e.style.top = y / 15 * 100 + '%'; e.style.setProperty('--s', s);
+    e.style.zIndex = 10 + Math.round(y * 2) + (e.classList.contains('can') ? 100 : 0); e.classList.toggle('blk', blk);
+  }
+  updateRoster() {
+    this.roster.replaceChildren(...this.players.map((p, i) => h('span', { class: 'chip' + (i === this.cur ? ' on' : '') },
+      h('i', { class: 'dot', style: { background: this.colorOf(i) } }), p.name, ' · 🏠 ' + this.tok[i].filter(t => t.pos === 56).length + '/4')));
+  }
+  doInput(k, a, b) {
+    if (k === 'd') { if (!this.dice.onClick) return false; this.dice.fire(); return true; }
+    if (!this.pick) return false; this.tokClick(this.tok[a][b]); return true;
+  }
+  serialize() { return { tok: this.tok.map(a => a.map(t => t.pos)), cur: this.cur }; }
+  /** Fading dot left behind on the square a token just left. */
+  trail(tk) {
+    const [x, y] = this.coord(tk), d = h('i', { class: 'trail', style: { left: x / 15 * 100 + '%', top: y / 15 * 100 + '%', background: LD_COL[tk.ci].c } });
+    this.tokLayer.append(d); setTimeout(() => d.remove(), 1000);
+  }
+  /* ---- rules ---- */
+  gidx(tk, pos = tk.pos) { return (LD_ST[tk.ci] + pos) % 52; }
+  /** Map of global square -> colour that holds a block (2+ tokens) there. */
+  blocks() {
+    const m = new Map(), cnt = new Map();
+    for (const t of this.all) { if (t.pos < 0 || t.pos > 50) continue; const g = this.gidx(t), k = g + '_' + t.ci; cnt.set(k, (cnt.get(k) || 0) + 1); if (cnt.get(k) >= 2) m.set(g, t.ci); }
+    return m;
+  }
+  /** Opponents' blocks may be neither landed on nor jumped over. */
+  blocked(ci, from, to) {
+    if (this.opts.blocks === false) return false;
+    const blk = this.blocks();
+    for (let p = Math.max(from + 1, 0); p <= Math.min(to, 50); p++) { const b = blk.get((LD_ST[ci] + p) % 52); if (b != null && b !== ci) return true; }
+    return false;
+  }
+  legal(p, roll) {
+    const out = [];
+    for (const tk of this.tok[p]) {
+      let to; if (tk.pos === -1) { if (roll !== 6) continue; to = 0; } else { to = tk.pos + roll; if (to > 56) continue; }
+      if (this.blocked(tk.ci, tk.pos, to)) continue; out.push({ tk, to });
+    }
+    return out;
+  }
+  victims(tk) {
+    if (tk.pos < 0 || tk.pos > 50) return []; const g = this.gidx(tk); if (LD_SAFE.has(g)) return [];
+    return this.all.filter(o => o.ci !== tk.ci && o.pos >= 0 && o.pos <= 50 && this.gidx(o) === g);
+  }
+  /** Is a token of colour ci standing on `pos` within 1-6 squares ahead of an enemy token? */
+  inDanger(ci, pos, ignore) {
+    if (pos < 0 || pos > 50) return false; const g = (LD_ST[ci] + pos) % 52; if (LD_SAFE.has(g)) return false;
+    if (this.all.some(t => t !== ignore && t.ci === ci && t.pos === pos)) return false;       // part of a block
+    return this.all.some(o => o.ci !== ci && o.pos >= 0 && o.pos <= 50 && (g - this.gidx(o) + 52) % 52 >= 1 && (g - this.gidx(o) + 52) % 52 <= 6);
+  }
+  /** CPU priority: capture > leave base > advance the lead token (if safe) > rescue a threatened token > lead token. */
+  aiPick(moves) {
+    if (this.level === 'easy') return moves[rand(moves.length)];
+    const cap = moves.filter(m => { const o = m.tk.pos; m.tk.pos = m.to; const v = this.victims(m.tk); m.tk.pos = o; m.v = v.length; return v.length; });
+    if (cap.length) return cap.sort((a, b) => b.v - a.v)[0];
+    const leave = moves.filter(m => m.tk.pos === -1); if (leave.length) return leave[0];
+    if (this.level === 'hard') {                                     // hard: step onto a safe star when possible
+      const sf = moves.filter(m => m.tk.pos >= 0 && m.to <= 50 && LD_SAFE.has((LD_ST[m.tk.ci] + m.to) % 52) && !LD_SAFE.has(this.gidx(m.tk)));
+      if (sf.length) return sf.sort((a, b) => b.tk.pos - a.tk.pos)[0];
+    }
+    const byLead = [...moves].sort((a, b) => b.tk.pos - a.tk.pos);
+    const safeLead = byLead.find(m => m.to === 56 || m.to > 50 || !this.inDanger(m.tk.ci, m.to, m.tk)); if (safeLead && safeLead === byLead[0]) return safeLead;
+    const rescue = byLead.find(m => this.inDanger(m.tk.ci, m.tk.pos) && !this.inDanger(m.tk.ci, m.to, m.tk)); if (rescue) return rescue;
+    return safeLead || byLead[0];
+  }
+  /* ---- turn flow ---- */
+  async loop() { while (!this.over) await this.playTurn(); }
+  nextPlayer() { this.cur = (this.cur + 1) % this.players.length; this.sixes = 0; this.updateRoster(); }
+  async playTurn() {
+    const P = this.players[this.cur]; this.turn(this.cur, 'Roll the dice'); this.dice.setColor(this.colorOf(this.cur)); this.updateRoster();
+    this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
+    if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
+    const roll = await this.dice.roll(); this.check();
+    this.sixes = roll === 6 ? this.sixes + 1 : 0;
+    if (this.sixes === 3) { this.info.textContent = 'Three 6s in a row — turn lost!'; UI.toast('Three 6s! Turn forfeited'); await this.wait(1200); return this.nextPlayer(); }
+    const moves = this.legal(this.cur, roll);
+    if (!moves.length) { this.info.textContent = `${P.name} rolled ${roll} — no move`; await this.wait(950); return roll === 6 ? undefined : this.nextPlayer(); }
+    this.info.textContent = `${P.name} rolled a ${roll}`; let mv;
+    if (P.cpu) { await this.wait(550); mv = this.aiPick(moves); }
+    else if (new Set(moves.map(m => m.tk.pos)).size === 1) { await this.wait(400); mv = moves[0]; }
+    else { this.turn(this.cur, 'Pick a token'); mv = await this.pickToken(moves); }
+    const res = await this.doMove(mv); if (this.over) return;
+    if (roll === 6) { UI.toast(`${P.name} rolls again! 🎉`); this.updateRoster(); }
+    else if (this.opts.bonus && (res.cap || res.home)) { UI.toast(`${P.name} gets a bonus turn! ⭐`); this.sixes = 0; this.updateRoster(); }
+    else this.nextPlayer();
+  }
+  pickToken(moves) {
+    return new Promise(res => {
+      if (this.isMine(this.cur)) moves.forEach(m => m.tk.el.classList.add('can')); this.layout();
+      this.pick = { moves, res: mv => { moves.forEach(m => m.tk.el.classList.remove('can')); this.pick = null; this.layout(); res(mv); } };
+    });
+  }
+  tokClick(tk) { if (!this.pick) return; const mv = this.pick.moves.find(m => m.tk === tk); if (mv) { Sound.play('click'); this.pick.res(mv); } }
+  async doMove({ tk, to }) {
+    const path = []; if (tk.pos === -1) path.push(0); else for (let p = tk.pos + 1; p <= to; p++) path.push(p);
+    for (const p of path) {                                             // hop square by square
+      this.trail(tk); tk.vpos = p; this.layout(); Sound.play('move');
+      const inner = tk.el.firstChild; inner.animate && inner.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-45%) scale(1.15)' }, { transform: 'translateY(0)' }], { duration: 170 });
+      await this.wait(175);
+    }
+    tk.pos = to; this.layout();
+    const vs = this.victims(tk), res = { cap: false, home: to === 56 }; res.cap = vs.length > 0;
+    if (vs.length) {
+      Sound.play('capture'); UI.toast(`💥 ${this.players[tk.p].name} captured ${this.players[vs[0].p].name}'s token!`);
+      for (const v of vs) { v.el.style.transitionDuration = '.55s'; v.pos = v.vpos = -1; }
+      this.layout(); await this.wait(650); vs.forEach(v => v.el.style.transitionDuration = '');
+    }
+    if (to === 56) { Sound.play('home'); UI.toast('🏠 A token made it home!'); }
+    this.updateRoster();
+    if (this.tok[tk.p].every(t => t.pos === 56)) { const P = this.players[tk.p]; this.finish(`${P.name} wins!`, `All four ${LD_COL[tk.ci].n.toLowerCase()} tokens are home.`, { emoji: P.cpu ? '🤖' : '🎉', winner: tk.p }); }
+    return res;
+  }
+}
+
+/* =====================================================================
+   4e. SNAKES & LADDERS
+   ===================================================================== */
+const SL_SNAKES = { 16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 };   // head -> tail
+const SL_LADDERS = { 1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100 };           // bottom -> top
+/** Random board: 9 ladders + 10 snakes. No square used twice, each spans 1-3 rows, and no two lines cross. New board every game. */
+function slGenerate() {
+  const seg = n => slXY(n), row = n => Math.floor((n - 1) / 10);
+  const ccw = (a, b, c) => (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0]);
+  const cross = (p, q, r, t) => ccw(p, r, t) !== ccw(q, r, t) && ccw(p, q, r) !== ccw(p, q, t);
+  for (let attempt = 0; attempt < 400; attempt++) {
+    const used = new Set([1, 100]), lines = [], snakes = {}, ladders = {};
+    const place = (isSnake, count) => {
+      for (let i = 0; i < count; i++) {
+        let placed = false;
+        for (let t = 0; t < 120 && !placed; t++) {
+          const lo = 2 + rand(88), len = 10 + rand(24), hi = lo + len;
+          if (hi > 99 || (isSnake && hi < 15) || used.has(lo) || used.has(hi) || row(lo) === row(hi)) continue;
+          const p = seg(lo), q = seg(hi);
+          if (lines.some(([u, v]) => cross(p, q, u, v))) continue;
+          lines.push([p, q]); used.add(lo); used.add(hi); placed = true;
+          if (isSnake) snakes[hi] = lo; else ladders[lo] = hi;
+        }
+        if (!placed) return false;
+      }
+      return true;
+    };
+    if (place(false, 9) && place(true, 10)) return { snakes, ladders };
+  }
+  return { snakes: SL_SNAKES, ladders: SL_LADDERS };
+}
+/** Centre of square n in a 100x100 board space (zig-zag numbering, 1 at bottom-left). */
+function slXY(n) { const i = n - 1, row = Math.floor(i / 10), k = i % 10, col = row % 2 === 0 ? k : 9 - k; return [col * 10 + 5, (9 - row) * 10 + 5]; }
+/** Wavy polyline from the snake's head to its tail. */
+function slSnakePts(a, b) {
+  const [x1, y1] = slXY(a), [x2, y2] = slXY(b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
+  const waves = Math.max(2, Math.round(L / 13)), amp = Math.min(3.4, L / 9), pts = [];
+  for (let i = 0; i <= 44; i++) { const t = i / 44, off = Math.sin(t * waves * Math.PI * 2) * amp * Math.pow(Math.sin(t * Math.PI), .6); pts.push([x1 + dx * t + nx * off, y1 + dy * t + ny * off]); }
+  return pts;
+}
+class SnakesLadders extends Game {
+  static meta = { id: 'snakes', name: 'Snakes & Ladders', emoji: '🐍', tag: 'Climb ladders, dodge snakes', min: 2, max: 4, c1: '#22c55e', c2: '#0d9488', noLevel: true,
+    rules: ['Roll the die and move that many squares, following the zig-zag numbers up to 100.', 'Land at the bottom of a ladder 🪜 to climb up. Land on a snake’s head 🐍 and you slide down.', 'You need the exact number to land on 100.', 'Roll a 6 to go again.', 'Every game has a brand-new random board.'] };
+  start() {
+    const n = this.players.length; const bd = slGenerate(); this.snakes = bd.snakes; this.ladders = bd.ladders; this.pos = Array(n).fill(0); this.cur = 0; this.dice = new Dice(() => this.ui('d'));
+    if (this.resume) { this.snakes = this.resume.snakes; this.ladders = this.resume.ladders; this.pos = this.resume.pos.slice(); this.cur = this.resume.cur; }
+    this.snakePts = {}; for (const [a, b] of Object.entries(this.snakes)) this.snakePts[a] = slSnakePts(+a, b);
+    const cells = [];
+    for (let vr = 0; vr < 10; vr++) for (let vc = 0; vc < 10; vc++) {
+      const row = 9 - vr, k = row % 2 === 0 ? vc : 9 - vc, num = row * 10 + k + 1;
+      cells.push(h('div', { class: 'sl-cell ' + ((row + vc) % 2 ? 'a' : 'b') + (num === 100 ? ' big' : '') }, num === 100 ? '100 🏁' : num));
+    }
+    this.pawns = this.players.map((p, i) => h('div', { class: 'pawn', style: { '--pc': this.colorOf(i) } }, i + 1));
+    this.wrap = h('div', { class: 'sl-wrap' }, h('div', { class: 'sl-grid' }, cells), this.drawSVG(), h('div', { class: 'sl-start' }, 'START'), this.pawns);
+    this.info = h('div', { class: 'info' }, ''); this.roster = h('div', { class: 'chips' });
+    this.root.append(this.wrap, h('div', { class: 'dicebar' }, this.dice.el, this.info), this.roster,
+      h('p', { class: 'hint' }, '🔀 A brand-new random board every game · land exactly on 100 · roll a 6 to go again'));
+    this.relayout(); this.updateRoster(); this.run(() => this.loop());
+  }
+  drawSVG() {
+    const NS = 'http://www.w3.org/2000/svg', mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+    const svg = mk('svg', { class: 'sl-svg', viewBox: '0 0 100 100', preserveAspectRatio: 'none' });
+    for (const [a, b] of Object.entries(this.ladders)) {                       // ladders: two rails + rungs
+      const [x1, y1] = slXY(+a), [x2, y2] = slXY(b), dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy * 1.6, ny = ux * 1.6;
+      const g = mk('g', {});
+      for (const s of [1, -1]) g.append(mk('line', { x1: x1 + nx * s, y1: y1 + ny * s, x2: x2 + nx * s, y2: y2 + ny * s, stroke: '#7c4a1e', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+      const rungs = Math.max(2, Math.floor(L / 5));
+      for (let i = 1; i <= rungs; i++) { const t = i / (rungs + 1), cx = x1 + dx * t, cy = y1 + dy * t; g.append(mk('line', { x1: cx + nx, y1: cy + ny, x2: cx - nx, y2: cy - ny, stroke: '#d9a066', 'stroke-width': .8, 'stroke-linecap': 'round' })); }
+      svg.append(g);
+    }
+    const cols = ['#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#db2777', '#65a30d', '#2563eb', '#ca8a04', '#475569'];
+    Object.keys(this.snakes).forEach((a, i) => {                                // snakes: body, pattern, head
+      const pts = this.snakePts[a], d = 'M' + pts.map(p => p[0].toFixed(2) + ' ' + p[1].toFixed(2)).join(' L'), col = cols[i % cols.length];
+      const [hx, hy] = pts[0], [qx, qy] = pts[2], hl = Math.hypot(qx - hx, qy - hy) || 1, fx = (hx - qx) / hl, fy = (hy - qy) / hl, px = -fy, py = fx;
+      const g = mk('g', { class: 'snk', style: `animation-delay:${-i * .37}s;animation-duration:${2 + (i % 4) * .4}s` });
+      g.append(mk('path', { d, fill: 'none', stroke: '#0006', 'stroke-width': 3.1, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      g.append(mk('path', { d, fill: 'none', stroke: col, 'stroke-width': 2.3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      g.append(mk('path', { d, fill: 'none', stroke: '#ffffff99', 'stroke-width': 1, 'stroke-dasharray': '.7 1.6', 'stroke-linecap': 'round' }));
+      g.append(mk('line', { x1: hx + fx * 1.4, y1: hy + fy * 1.4, x2: hx + fx * 3, y2: hy + fy * 3, stroke: '#ef4444', 'stroke-width': .5, 'stroke-linecap': 'round' }));
+      g.append(mk('ellipse', { cx: hx, cy: hy, rx: 2.2, ry: 1.8, fill: col, stroke: '#0006', 'stroke-width': .4, transform: `rotate(${Math.atan2(fy, fx) * 180 / Math.PI} ${hx} ${hy})` }));
+      for (const s of [1, -1]) { g.append(mk('circle', { cx: hx + px * s * .9 + fx * .5, cy: hy + py * s * .9 + fy * .5, r: .55, fill: '#fff' })); g.append(mk('circle', { cx: hx + px * s * .9 + fx * .7, cy: hy + py * s * .9 + fy * .7, r: .25, fill: '#111' })); }
+      svg.append(g);
+    });
+    return svg;
+  }
+  doInput() { if (!this.dice.onClick) return false; this.dice.fire(); return true; }
+  serialize() { return { pos: this.pos, cur: this.cur, snakes: this.snakes, ladders: this.ladders }; }
+  sparkle(x, y) { const e = h('span', { class: 'spark', style: { left: x + '%', top: y / 110 * 100 + '%' } }, '✨'); this.wrap.append(e); setTimeout(() => e.remove(), 950); }
+  bite() { this.wrap.classList.add('bite'); setTimeout(() => this.wrap.classList.remove('bite'), 520); }
+  setXY(i, x, y) { this.pawns[i].style.left = x + '%'; this.pawns[i].style.top = y / 110 * 100 + '%'; }
+  /** Position all pawns, fanning out those that share a square. */
+  relayout() {
+    const by = new Map(); this.pos.forEach((p, i) => { if (!by.has(p)) by.set(p, []); by.get(p).push(i); });
+    for (const [p, list] of by) list.forEach((i, j) => {
+      if (p === 0) return this.setXY(i, 12 + i * 8, 105);
+      const k = list.length; let [x, y] = slXY(p); x += (j - (k - 1) / 2) * 3; y += k > 1 ? (j % 2 ? 1.4 : -1.4) : 0; this.setXY(i, x, y);
+    });
+  }
+  updateRoster() {
+    this.pawns.forEach((p, i) => p.classList.toggle('act', i === this.cur && !this.over));
+    this.roster.replaceChildren(...this.players.map((p, i) => h('span', { class: 'chip' + (i === this.cur ? ' on' : '') },
+      h('i', { class: 'dot', style: { background: this.colorOf(i) } }), `${i + 1}. ${p.name} · ${this.pos[i] || 'start'}`)));
+  }
+  async loop() {
+    while (!this.over) {
+      const i = this.cur, P = this.players[i]; this.turn(i, 'Roll the dice'); this.dice.setColor(this.colorOf(i)); this.updateRoster();
+      this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
+      if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
+      const r = await this.dice.roll(); this.check(); await this.takeTurn(i, r); if (this.over) return;
+      if (r === 6) UI.toast(`${P.name} rolled a 6 — go again! 🎉`); else this.cur = (i + 1) % this.players.length;
+    }
+  }
+  async takeTurn(i, r) {
+    const P = this.players[i], from = this.pos[i], target = from + r;
+    if (target > 100) { this.info.textContent = `${P.name} rolled ${r} — needs exact roll to reach 100`; await this.wait(1000); return; }
+    this.info.textContent = `${P.name} rolled a ${r}`;
+    for (let n = from + 1; n <= target; n++) { this.setXY(i, ...slXY(n)); Sound.play('move'); await this.wait(190); }   // walk square by square
+    this.pos[i] = target; this.relayout();
+    if (this.ladders[target]) {
+      const top = this.ladders[target]; this.info.textContent = `🪜 Ladder! ${target} → ${top}`; Sound.play('ladder'); this.sparkle(...slXY(target)); await this.wait(250);
+      this.pawns[i].style.transitionDuration = '.9s'; this.setXY(i, ...slXY(top)); await this.wait(950); this.pawns[i].style.transitionDuration = ''; this.pos[i] = top; this.sparkle(...slXY(top));
+    } else if (this.snakes[target]) {
+      const tail = this.snakes[target]; this.info.textContent = `🐍 Snake! ${target} → ${tail}`; Sound.play('snake'); this.bite(); await this.wait(250);
+      this.pawns[i].style.transitionDuration = '.04s';
+      for (const [x, y] of this.snakePts[target]) { this.setXY(i, x, y); await this.wait(34); }                          // slide along the snake's body
+      this.pawns[i].style.transitionDuration = ''; this.pos[i] = tail;
+    }
+    this.relayout(); this.updateRoster();
+    if (this.pos[i] === 100) this.finish(`${P.name} wins!`, 'Reached square 100!', { emoji: P.cpu ? '🤖' : '🎉', winner: i });
+  }
+}
+
+/* =====================================================================
+   4f. CARD GAME — Crazy Eights (52-card deck, 8s wild, scoring over rounds)
+   Card = {id, s: suit 0-3, r: rank 1-13}. Winner of a round scores the values left in others' hands.
+   ===================================================================== */
+const SUITS = ['♠', '♥', '♦', '♣'], RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const cardVal = c => c.r === 8 ? 50 : c.r > 10 ? 10 : c.r;
+function cardEl(c, o = {}) {
+  const red = c.s === 1 || c.s === 2, rk = RANKS[c.r - 1];
+  return h('div', { class: 'pc' + (red ? ' red' : '') + (o.cls ? ' ' + o.cls : ''), onclick: o.onclick, role: o.onclick ? 'button' : null, tabindex: o.onclick ? 0 : null, 'aria-label': `${rk} of ${['spades', 'hearts', 'diamonds', 'clubs'][c.s]}`,
+      onkeydown: o.onclick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); o.onclick(); } }) : null },
+    h('span', { class: 'cn tl' }, rk, h('br'), SUITS[c.s]), h('span', { class: 'mid' }, SUITS[c.s]), h('span', { class: 'cn br' }, rk, h('br'), SUITS[c.s]));
+}
+const cardBack = small => h('div', { class: 'pc back' + (small ? ' sm' : '') });
+
+class CardGame extends Game {
+  static meta = { id: 'cards', name: 'Crazy Eights', emoji: '🃏', tag: 'Match suit or rank · 8s are wild', min: 2, max: 4, c1: '#10b981', c2: '#2563eb',
+    rules: ['Match the top card by suit or rank. 8s are wild — play one any time and pick the new suit.', 'Can’t play? Tap the draw pile; you keep drawing until you get a playable card.',
+      'Action cards (optional): 2 = next player draws 2 and loses a turn · Q = skip · A = reverse (with 2 players, play again).', 'Down to two cards? Tap 📣 LAST CARD! before you play, or draw 2 as a penalty.',
+      'Empty your hand to win the round and score the points left in others’ hands (8 = 50, J/Q/K = 10, A = 1). First to 100 wins the match.'],
+    opts: [{ k: 'actions', label: 'Action cards (2, Q, A)', def: true }] };
+  start() {
+    const c = this.cfg.carry; if (!c.scores) c.scores = this.players.map(() => 0); c.round = c.round || 0;
+    this.scores = c.scores; this.target = 100; this.cur = c.round % this.players.length;
+    this.humans = this.players.filter(p => !p.cpu).length; this.hv = Math.max(0, this.players.findIndex(p => !p.cpu));
+    if (this.net) { this.humans = 1; this.hv = this.net.seat; }                 // online: everyone sees only their own hand
+    this.actionRes = null; this.covered = null; this.called = false; this.passes = 0; this.picking = false; this.fresh = null; this.landed = null;
+    this.box = h('div', { class: 'cg' }); this.root.append(this.box);
+    this.dir = 1; this.effect = null; this.lastHuman = null;
+    const rs = this.resume;
+    if (rs) Object.assign(this, { hands: rs.hands, discard: rs.discard, draw: rs.draw, suit: rs.suit, cur: rs.cur, passes: rs.passes, dir: rs.dir });
+    else {
+      let deck = []; for (let s = 0; s < 4; s++) for (let r = 1; r <= 13; r++) deck.push({ id: s * 13 + r, s, r }); shuffle(deck);
+      const k = this.players.length === 2 ? 7 : 5; this.hands = this.players.map(() => deck.splice(0, k));
+      const t = deck.splice(deck.findIndex(x => x.r !== 8), 1)[0]; this.discard = [t]; this.draw = deck; this.suit = t.s;
+    }
+    this.run(() => this.gameLoop());
+  }
+  serialize() { return { hands: this.hands, discard: this.discard, draw: this.draw, suit: this.suit, cur: this.cur, passes: this.passes, dir: this.dir }; }
+  top() { return this.discard[this.discard.length - 1]; }
+  playable(c) { return c.r === 8 || c.s === this.suit || c.r === this.top().r; }
+  viewer() { return this.covered != null ? this.covered : this.humans > 1 ? this.cur : this.hv; }
+  takeCard(i) {
+    if (!this.draw.length) { if (this.discard.length > 1) { const t = this.discard.pop(); this.draw = shuffle(this.discard); this.discard = [t]; } else return null; }
+    const c = this.draw.pop(); this.hands[i].push(c); this.fresh = c.id; return c;
+  }
+  /* ---- rendering ---- */
+  render() {
+    const v = this.viewer(), n = this.players.length, hand = this.hands[v], cur = this.cur;
+    const myTurn = this.covered == null && v === cur && !this.players[cur].cpu && !!this.actionRes;
+    const noPlay = myTurn && !hand.some(c => this.playable(c));
+    const top = this.top();
+    const scores = h('div', { class: 'cg-scores' }, this.players.map((p, i) => h('span', { class: 'chip' + (i === cur ? ' on' : '') },
+      h('i', { class: 'dot', style: { background: PALETTE[i] } }), `${p.name}: ${this.scores[i]}`)), h('span', { class: 'chip' }, '🎯 ' + this.target));
+    const opps = h('div', { class: 'cg-opps' }, this.players.map((p, i) => i === v ? null : h('div', { class: 'cg-opp' + (i === cur ? ' on' : '') },
+      h('div', { class: 'nm' }, p.name + (p.cpu ? ' 🤖' : '')), h('div', { class: 'fan' }, Array.from({ length: Math.min(this.hands[i].length, 12) }, () => cardBack(true))),
+      h('div', { class: 'ct' }, this.hands[i].length + (this.hands[i].length === 1 ? ' card' : ' cards')))));
+    const table = h('div', { class: 'cg-table' },
+      h('button', { class: 'pile' + (noPlay ? ' glow' : ''), 'aria-label': 'Draw pile', onclick: () => this.onDraw() }, cardBack(), h('span', { class: 'cnt' }, this.draw.length)),
+      h('div', { class: 'disc-wrap' }, cardEl(top, { cls: this.landed === top.id ? 'land' : '' }), this.opts.actions !== false ? h('div', { class: 'dirbadge', title: 'Play direction' }, this.dir > 0 ? '↻' : '↺') : null,
+        h('div', { class: 'suitbadge' + (this.suit === 1 || this.suit === 2 ? ' red' : ''), title: 'Current suit' }, SUITS[this.suit])));
+    const sorted = [...hand].sort((a, b) => a.s - b.s || a.r - b.r);
+    const handEl = h('div', { class: 'hand' }, sorted.map(c => this.covered != null ? cardBack() :
+      cardEl(c, { cls: (c.id === this.fresh ? 'fresh ' : '') + (myTurn ? (this.playable(c) ? 'ok' : 'no') : ''), onclick: () => this.onCard(c) })));
+    const me = h('div', { class: 'cg-me' }, h('span', { class: 'who' }, this.players[v].name + ' — ' + hand.length + (hand.length === 1 ? ' card' : ' cards')),
+      h('button', { class: 'last' + (this.called ? ' on' : ''), disabled: !(myTurn && hand.length === 2), onclick: () => this.callLast() }, this.called ? '✓ Last card called' : '📣 LAST CARD!'));
+    const kids = [scores, n > 1 ? opps : null, table, handEl, me];
+    if (this.covered != null) kids.push(h('div', { class: 'cover' }, h('strong', {}, `Pass the device to ${this.players[this.covered].name}`),
+      h('button', { class: 'btn small', onclick: () => { const r = this.coverRes; this.coverRes = null; this.covered = null; this.render(); r && r(); } }, 'Show my cards')));
+    this.box.replaceChildren(...kids.filter(Boolean)); this.fresh = null; this.landed = null;
+    requestAnimationFrame(() => this.fit(handEl));
+  }
+  /** Overlap the hand so every card fits the width (min 24px visible; scrolls beyond that). */
+  fit(el) {
+    const kids = [...el.children], n = kids.length; if (n < 2) return;
+    const W = el.clientWidth - 14, cw = kids[0].offsetWidth; let ov = 6;
+    if (n * cw + (n - 1) * 6 > W) { ov = -((n * cw - W) / (n - 1)); if (cw + ov < 24) ov = 24 - cw; }
+    el.style.setProperty('--ov', ov + 'px');
+  }
+  /* ---- player input ---- */
+  nextAction() { return new Promise(res => { this.actionRes = res; this.render(); }); }
+  async onCard(c) {
+    if (!this.actionRes || this.picking || this.covered != null) return;
+    if (!this.playable(c)) { Sound.play('error'); UI.toast("That card doesn't match"); return; }
+    if (!this.isMine(this.cur)) return;
+    let suit = c.s;
+    if (c.r === 8) { this.picking = true; suit = await this.pickSuit(); this.picking = false; if (suit == null) return; }
+    this.ui('play', c.id, suit);
+  }
+  doInput(k, id, suit) {
+    if (!this.actionRes) return false;
+    if (k === 'draw') { const r = this.actionRes; this.actionRes = null; r({ t: 'draw' }); return true; }
+    if (k === 'last') { if (!this.called) { this.called = true; Sound.play('home'); UI.toast('📣 LAST CARD!'); this.render(); } return true; }
+    const card = this.hands[this.cur].find(x => x.id === id); if (!card) return true;
+    const r = this.actionRes; this.actionRes = null; r({ t: 'play', card, suit }); return true;
+  }
+  onDraw() {
+    if (!this.actionRes || this.picking || this.covered != null || !this.isMine(this.cur)) return;
+    if (this.hands[this.cur].some(c => this.playable(c))) { Sound.play('error'); UI.toast('You have a playable card!'); return; }
+    this.ui('draw');
+  }
+  callLast() { if (this.called || !this.isMine(this.cur)) return; this.ui('last'); }
+  pickSuit() {
+    return new Promise(res => {
+      let done = false; const fin = s => { if (!done) { done = true; res(s); } };
+      const m = UI.modal(h('div', {}, h('h3', {}, 'Wild 8 — choose a suit'), h('div', { class: 'suitpick' }, SUITS.map((s, i) =>
+        h('button', { class: i === 1 || i === 2 ? 'red' : '', onclick: () => { fin(i); m.close(); } }, s)))), { onClose: () => fin(null) });
+    });
+  }
+  coverUntil(i) { return new Promise(res => { this.covered = i; this.coverRes = res; this.render(); }); }
+  /* ---- turn flow ---- */
+  async gameLoop() {
+    while (!this.over) {
+      const i = this.cur, n = this.players.length; this.called = false; this.effect = null; this.render();
+      if (this.players[i].cpu) await this.cpuTurn(i); else await this.humanTurn(i);
+      if (this.over) return;
+      if (this.passes >= n) return this.roundOver(this.hands.map((hd, k) => [hd.reduce((s, c) => s + cardVal(c), 0), k]).sort((a, b) => a[0] - b[0])[0][1], true);
+      let next = (i + this.dir + n) % n; const eff = this.effect;
+      if (eff === 'rev') {
+        this.dir = -this.dir;
+        if (n === 2) { next = i; UI.toast('↺ Reverse — play again!'); } else { next = (i + this.dir + n) % n; UI.toast('↺ Direction reversed'); }
+      } else if (eff === 'skip') { UI.toast(`🚫 ${this.players[next].name} is skipped`); next = (next + this.dir + n) % n; }
+      else if (eff === 'draw2') {
+        const v = next; UI.toast(`✌️ ${this.players[v].name} draws 2 and is skipped`); this.takeCard(v); this.takeCard(v); Sound.play('card'); this.render(); await this.wait(800);
+        next = (v + this.dir + n) % n;
+      }
+      this.cur = next;
+    }
+  }
+  async humanTurn(i) {
+    if (this.humans > 1 && this.lastHuman !== i) await this.coverUntil(i);
+    this.lastHuman = i;
+    for (;;) {
+      this.check(); const can = this.hands[i].some(c => this.playable(c));
+      this.turn(i, !this.isMine(i) ? 'waiting for them…' : can ? 'Play a matching card' : 'No match — tap the draw pile');
+      const act = await this.nextAction();
+      if (act.t === 'play') { this.passes = 0; return this.playCard(i, act.card, act.suit); }
+      const got = await this.drawUntil(i);
+      if (got === 0 || !this.hands[i].some(c => this.playable(c))) { this.passes++; UI.toast('No playable card — pass'); await this.wait(800); return; }
+      this.passes = 0;
+    }
+  }
+  /** Draw until a playable card shows up (or the pile runs dry). */
+  async drawUntil(i) {
+    let got = 0;
+    for (;;) { const c = this.takeCard(i); if (!c) break; got++; Sound.play('card'); this.render(); await this.wait(430); if (this.playable(c)) break; }
+    return got;
+  }
+  cpuChoose(i) {
+    const hand = this.hands[i], ok = hand.filter(c => this.playable(c)); if (!ok.length) return null;
+    if (this.level === 'easy') { const c = ok[rand(ok.length)]; return { card: c, suit: c.r === 8 ? rand(4) : c.s }; }
+    const non8 = ok.filter(c => c.r !== 8), pool = non8.length ? non8 : ok;
+    const cnt = [0, 0, 0, 0]; hand.forEach(c => cnt[c.s]++);
+    const bonus = c => this.opts.actions !== false && [1, 2, 12].includes(c.r) ? 4 : 0;
+    pool.sort((a, b) => cnt[b.s] + bonus(b) - cnt[a.s] - bonus(a) || cardVal(b) - cardVal(a)); const card = pool[0];
+    let suit = card.s;
+    if (card.r === 8) { const c2 = [0, 0, 0, 0]; hand.forEach(c => { if (c !== card) c2[c.s]++; }); const mx = Math.max(...c2); suit = mx ? c2.indexOf(mx) : rand(4); }
+    return { card, suit };
+  }
+  async cpuTurn(i) {
+    this.turn(i, 'thinking…'); await this.wait(950);
+    let ch = this.cpuChoose(i);
+    if (!ch) { UI.toast(`${this.players[i].name} draws`); await this.drawUntil(i); await this.wait(250); ch = this.cpuChoose(i); }
+    if (ch) { this.passes = 0; await this.playCard(i, ch.card, ch.suit); } else { this.passes++; UI.toast(`${this.players[i].name} passes`); await this.wait(600); }
+  }
+  async playCard(i, card, suit) {
+    const hand = this.hands[i], P = this.players[i]; hand.splice(hand.indexOf(card), 1);
+    this.discard.push(card); this.suit = suit; this.landed = card.id;
+    this.effect = this.opts.actions !== false ? (card.r === 2 ? 'draw2' : card.r === 12 ? 'skip' : card.r === 1 ? 'rev' : null) : null; Sound.play('card'); this.render();
+    if (card.r === 8) UI.toast(`${P.name} chose ${SUITS[suit]}`);
+    if (hand.length === 1) {
+      if (P.cpu || this.called) { UI.toast(`${P.name}: LAST CARD! 📣`); Sound.play('home'); }
+      else { UI.toast(`${P.name} forgot to call LAST CARD — +2 cards!`, 2400); Sound.play('error'); this.takeCard(i); this.takeCard(i); this.render(); }
+    }
+    await this.wait(550);
+    if (hand.length === 0) this.roundOver(i, false);
+  }
+  roundOver(i, blocked) {
+    if (this.over) return;
+    const pts = this.hands.reduce((s, hd, k) => k === i ? s : s + hd.reduce((a, c) => a + cardVal(c), 0), 0);
+    this.scores[i] += pts; this.render();
+    const c = this.cfg.carry, name = this.players[i].name, sc = this.players.map((p, k) => `${p.name}: ${this.scores[k]}`).join(' · ');
+    const match = this.scores[i] >= this.target; if (match) { c.scores = null; c.round = 0; } else c.round++;
+    if (match) this.finish(`${name} wins the match!`, sc, { emoji: '🏆', againLabel: 'New Match' });
+    else this.finish(`${name} wins the round! +${pts}`, `${blocked ? 'Deck ran out — lowest hand wins. ' : ''}${sc} · first to ${this.target}`, { emoji: '🃏', againLabel: 'Next Round' });
+  }
+}
+
+/* =====================================================================
+   5a. ONLINE — Net client (WebSocket to server.js)
+   Model: every client runs the whole game with the same seed. Local inputs are sent to the server,
+   which echoes them to everybody in one global order; each client then applies them, so all stay identical.
+   ===================================================================== */
+class Net {
+  constructor(hub) {
+    this.hub = hub; this.ws = null; this.seat = 0; this.code = ''; this.token = ''; this.url = ''; this.players = []; this.gen = 0; this.consumed = 0;
+    this.pending = false; this.queue = []; this.started = false; this.dead = false; this.replaying = false; this.buffer = []; this.onRejoin = null; this.fatal = false;
+  }
+  connect(url) {
+    this.url = url;
+    return new Promise((res, rej) => {
+      let ws, opened = false; try { ws = new WebSocket(url); } catch (e) { return rej(new Error('Bad server address')); }
+      this.ws = ws; ws.onopen = () => { opened = true; res(); };
+      ws.onerror = () => { if (!opened) rej(new Error('Could not reach the server')); };
+      ws.onmessage = e => { try { this.hub.onNet(this, JSON.parse(e.data)); } catch (err) { console.error(err); } };
+      ws.onclose = () => { if (opened) this.hub.onNetClose(this); };
+    });
+  }
+  send(o) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); }
+  game(d) { this.send({ t: 'msg', d }); }
+  /** Send a game input (one in flight at a time; stamped with how many inputs we've applied). */
+  input(a) { if (this.pending || this.dead) return; this.pending = true; clearTimeout(this.pt); this.pt = setTimeout(() => { this.pending = false; }, 4000); this.game({ k: 'in', n: this.consumed, a }); }
+  /** Heartbeat check used when the phone wakes up: if no pong in 2.5 s the socket is half-dead. */
+  ping() { clearTimeout(this.pongT); this.pongT = setTimeout(() => this.hub.lost(this), 2500); this.send({ t: 'ping' }); }
+  close(leave) {
+    clearTimeout(this.pt); clearTimeout(this.pongT);
+    try { if (leave) this.send({ t: 'bye' }); if (this.ws) { this.ws.onclose = null; this.ws.close(); } } catch (e) { /* ignore */ }
+  }
+}
+
+/* =====================================================================
+   5. HUB — menu, setup sheet, launching games
+   Register new games here.
+   ===================================================================== */
+const GAMES = [Ludo, SnakesLadders, TicTacToe, ConnectFour, Checkers, CardGame];
+
+/** Quick reactions: emoji + a short synthesized sound. Sent by index so the server/clients never relay arbitrary text. */
+const REACT = [
+  { e: '😂', n: 'Haha', s: [[600, .07, 'square', .08, 0], [520, .07, 'square', .08, .09], [600, .07, 'square', .08, .18], [520, .09, 'square', .08, .27]] },
+  { e: '👏', n: 'Clap', s: [0, .13, .26, .39, .5].map(d => [1800, .03, 'square', .09, d]) },
+  { e: '😮', n: 'Wow', s: [[300, .4, 'sine', .15, 0, 750]] },
+  { e: '😡', n: 'Grr', s: [[190, .45, 'sawtooth', .12, 0, 90]] },
+  { e: '🎉', n: 'Party', s: [[523, .1, 'triangle', .15, 0], [659, .1, 'triangle', .15, .09], [784, .1, 'triangle', .15, .18], [1047, .28, 'triangle', .15, .27]] },
+  { e: '👍', n: 'Nice', s: [[660, .08, 'triangle', .15, 0], [880, .16, 'triangle', .15, .09]] },
+  { e: '😢', n: 'Sad', s: [[440, .25, 'sine', .14, 0, 330], [330, .45, 'sine', .14, .28, 220]] },
+  { e: '🔥', n: 'Fire', s: [[200, .55, 'sawtooth', .1, 0, 900]] }
+];
+
+class Hub {
+  constructor(root) {
+    Store.load(); Sound.muted = !!Store.get('muted', false); document.documentElement.dataset.theme = Store.get('theme', 'classic');
+    this.game = null; this.Cls = null; this.cfg = null;
+    this.menuEl = h('section', { class: 'screen' });
+    this.titleEl = h('h2'); this.dot = h('span', { class: 'dot' }); this.turnTxt = h('span'); this.turnSub = h('small');
+    this.scoreEl = h('div', { class: 'scoreline' }); this.toolsEl = h('div', { class: 'tools' }); this.stage = h('div', { class: 'stage' });
+    this.gameEl = h('section', { class: 'screen hidden' },
+      h('div', { class: 'bar' }, h('button', { class: 'btn ghost small', onclick: () => this.toMenu() }, '← Menu'), this.titleEl),
+      h('div', { class: 'turnbar', role: 'status', 'aria-live': 'polite' }, this.dot, this.turnTxt, this.turnSub), this.scoreEl, this.toolsEl, this.stage);
+    this.netbar = h('div', { id: 'netbar', class: 'hidden', role: 'status' }); this.away = new Map(); this.reconnecting = false; this.sess = null; this.installEv = null;
+    this.muteBtn = h('button', { id: 'mute', 'aria-label': 'Toggle sound effects', onclick: () => { Sound.muted = !Sound.muted; Store.set('muted', Sound.muted); this.paintMute(); Sound.play('click'); } });
+    this.musicBtn = h('button', { id: 'music', 'aria-label': 'Toggle background music', onclick: () => { const on = !Sound.musicOn; Store.set('music', on); Sound.setMusic(on); this.paintMute(); } }, '🎵');
+    this.paintMute();
+    const bgfx = h('div', { class: 'bgfx' }, Array.from({ length: 16 }, (_, i) => h('span', { style: { left: (i * 6.3 + crand(5)) + '%', '--s': (24 + crand(36)) + 'px', '--d': (16 + crand(18)) + 's', '--dl': (-crand(30)) + 's' } },
+      ['🎲', '♟️', '🃏', '🐍', '🪜', '⭐', '🔴', '🟡', '♠️', '♥️'][i % 10])));
+    this.initChat();
+    root.append(bgfx, this.menuEl, this.gameEl, this.muteBtn, this.musicBtn, this.netbar, this.reactEl, this.chatPanel, this.chatBtn);
+    document.addEventListener('pointerdown', () => { Sound.init(); if (Store.get('music', false)) Sound.setMusic(true); this.paintMute(); }, { once: true });
+    this.buildMenu();
+    document.addEventListener('visibilitychange', () => { const n = this.net; if (document.visibilityState === 'visible' && n && n.started && !n.dead && !this.reconnecting) n.ping(); });
+    window.addEventListener('online', () => { const n = this.net; if (n && n.started && !this.reconnecting) this.lost(n); });
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); this.installEv = e; if (!this.game) this.buildMenu(); });
+    window.addEventListener('appinstalled', () => { this.installEv = null; if (!this.game) this.buildMenu(); });
+    const sess = this.loadSess(), room = (QS.get('room') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    if (sess) { this.sess = sess; setTimeout(() => this.reconnect(), 0); }                      // page was reloaded mid-game: rejoin automatically
+    else if (room.length === 4) setTimeout(() => this.openOnline(room), 300);                   // opened from an invite link
+  }
+  paintMute() { this.muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; this.musicBtn.style.opacity = Store.get('music', false) ? 1 : .45; }
+  setTurn(name, color, extra) {
+    this.dot.style.background = color || '#888'; this.dot.style.color = color || '#888';
+    this.turnTxt.textContent = name ? (extra === '' ? name : (name === 'You' ? 'Your turn' : name + "'s turn")) : ''; this.turnSub.textContent = name && extra ? '· ' + extra : '';
+  }
+  setScore(t) { this.scoreEl.textContent = t || ''; this.scoreEl.classList.toggle('hidden', !t); }
+  setTools(list) { this.toolsEl.replaceChildren(...(list || []).map(t => h('button', { class: 'btn ghost small', onclick: t.fn }, t.label)), h('button', { class: 'btn ghost small', onclick: () => this.showRules(this.Cls) }, '❓ Rules')); }
+  /* ---- online ---- */
+  defaultServer() { return typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host : 'ws://localhost:8787'; }
+  served() { return typeof location !== 'undefined' && /^https?:$/.test(location.protocol); }
+  inviteUrl(code) { return this.served() ? location.origin + location.pathname + '?room=' + code : ''; }
+  /** The saved online session (room code + secret seat token) survives a page reload via sessionStorage. */
+  sessKey() { return 'gn.sess.' + SID; }
+  saveSess(v) { this.sess = v; try { v ? sessionStorage.setItem(this.sessKey(), JSON.stringify(v)) : sessionStorage.removeItem(this.sessKey()); } catch (e) { /* private mode */ } }
+  loadSess() { try { const v = JSON.parse(sessionStorage.getItem(this.sessKey())); return v && v.code && v.token && v.url ? v : null; } catch (e) { return null; } }
+  showBar(text, onCancel) {
+    this.netbar.replaceChildren(text, ...(onCancel ? [h('button', { class: 'btn ghost small', onclick: onCancel }, 'Cancel')] : [])); this.netbar.classList.remove('hidden');
+  }
+  hideBar() { this.netbar.classList.add('hidden'); }
+  /* ---- chat: emoji reactions (with sound) + push-to-talk voice clips, relayed by the server, never logged/replayed ---- */
+  initChat() {
+    this.voiceOn = Store.get('voice', true); this.lastReact = 0; this.stream = null; this.rec = null;
+    this.reactEl = h('div', { id: 'reactions', 'aria-hidden': 'true' });
+    this.chatBtn = h('button', { id: 'chatbtn', class: 'hidden', 'aria-label': 'Chat: reactions and voice', onclick: () => this.toggleChat() }, '💬');
+    this.talkBtn = h('button', { id: 'talk', class: 'btn', 'aria-label': 'Hold to talk' }, '🎤 Hold to talk');
+    const t = this.talkBtn, end = () => this.stopTalk();
+    t.addEventListener('pointerdown', e => { e.preventDefault(); try { t.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } this.startTalk(); });
+    t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end); t.addEventListener('contextmenu', e => e.preventDefault());
+    t.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); this.startTalk(); } });
+    t.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') end(); });
+    this.voiceBtn = h('button', { class: 'btn ghost', onclick: () => { this.voiceOn = !this.voiceOn; Store.set('voice', this.voiceOn); this.paintVoice(); } });
+    this.chatNote = h('small');
+    this.chatPanel = h('div', { id: 'chatpanel', class: 'hidden' },
+      h('div', { class: 'emo' }, REACT.map((r, i) => h('button', { 'aria-label': r.n, title: r.n, onclick: () => this.sendReact(i) }, r.e))),
+      h('div', { class: 'row' }, t, this.voiceBtn), this.chatNote);
+    this.paintVoice();
+  }
+  paintVoice() { this.voiceBtn.textContent = this.voiceOn ? '🔊 Voices on' : '🔇 Voices off'; this.voiceBtn.setAttribute('aria-pressed', String(this.voiceOn)); }
+  canVoice() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined' && window.isSecureContext !== false); }
+  paintChat() {
+    const on = !!(this.net && this.net.started); this.chatBtn.classList.toggle('hidden', !on);
+    if (!on) { this.chatPanel.classList.add('hidden'); this.releaseMic(); }
+  }
+  toggleChat() {
+    const open = this.chatPanel.classList.toggle('hidden') === false; Sound.init();
+    this.chatNote.textContent = this.canVoice() ? 'Hold the mic button and talk (up to 4 s)' : 'Voice needs HTTPS (or localhost) and a microphone — reactions still work';
+    this.talkBtn.disabled = !this.canVoice(); if (!open) this.releaseMic();
+  }
+  releaseMic() { try { if (this.rec && this.rec.state === 'recording') { this.rec.onstop = null; this.rec.stop(); } } catch (e) { /* ignore */ } this.rec = null; this.talkBtn.classList.remove('rec'); if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; } }
+  sendReact(i) {
+    const n = this.net, now = Date.now(); if (!n || !n.started || now - this.lastReact < 500) return; this.lastReact = now;
+    n.send({ t: 'chat', k: 'e', i }); this.showReact(n.players[n.seat] || 'You', i);
+  }
+  showReact(name, i) {
+    const r = REACT[i]; if (!r || FF) return;
+    const el = h('div', { class: 'react', style: { left: (8 + crand(1) * 70) + '%' } }, h('b', null, r.e), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500);
+    if (!Sound.muted) { Sound.init(); r.s.forEach(x => Sound.tone(...x)); }
+  }
+  async startTalk() {
+    if (this.rec || !this.net || !this.canVoice()) return; this.held = true;
+    try { if (!this.stream) this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { this.held = false; this.chatNote.textContent = 'Microphone blocked — allow it in your browser to talk'; return; }
+    if (!this.held || !this.net) return;                                                    // let go while the permission prompt was open
+    const mt = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    let rec; try { rec = new MediaRecorder(this.stream, mt ? { mimeType: mt, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 }); } catch (e) { this.chatNote.textContent = 'This browser cannot record audio'; return; }
+    const chunks = [], t0 = Date.now(); this.rec = rec; this.talkBtn.classList.add('rec');
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      this.talkBtn.classList.remove('rec'); clearTimeout(this.recT); if (this.rec === rec) this.rec = null;
+      const blob = new Blob(chunks, { type: rec.mimeType || mt || 'audio/webm' }); if (Date.now() - t0 < 350 || blob.size < 200) return;
+      if (blob.size > 30000) { this.chatNote.textContent = 'Clip too long — keep it under 4 s'; return; }
+      const fr = new FileReader(); fr.onload = () => { const s = String(fr.result), at = s.indexOf(','), n = this.net; if (!n || at < 0) return;
+        n.send({ t: 'chat', k: 'v', mt: blob.type.split(';')[0] + (blob.type.includes('opus') ? ';codecs=opus' : ''), a: s.slice(at + 1) }); this.showTalk('You'); }; fr.readAsDataURL(blob);
+    };
+    rec.start(); this.recT = setTimeout(() => this.stopTalk(), 4000);
+  }
+  stopTalk() { this.held = false; try { if (this.rec && this.rec.state === 'recording') this.rec.stop(); } catch (e) { /* ignore */ } }
+  showTalk(name) { const el = h('div', { class: 'react', style: { left: '40%' } }, h('b', null, '🎤'), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500); }
+  onChat(net, m) {
+    if (net.replaying || FF || m.from === net.seat) return; const name = net.players[m.from] || 'Player';
+    if (m.k === 'e') this.showReact(name, m.i | 0);
+    else if (m.k === 'v' && this.voiceOn && typeof m.a === 'string' && /^audio\/[a-z0-9]+(;codecs=[a-z0-9]+)?$/.test(m.mt || '')) {
+      this.showTalk(name); try { const a = new Audio(`data:${m.mt};base64,${m.a}`); a.volume = 1; const p = a.play(); if (p && p.catch) p.catch(() => { /* autoplay blocked until the player taps once */ }); } catch (e) { /* ignore */ }
+    }
+  }
+  updateAwayBar() {
+    if (this.reconnecting || (this.net && this.net.replaying)) return;
+    if (this.away.size) this.showBar(`⏳ ${[...this.away.values()].join(', ')} lost connection — waiting for them to come back…`); else this.hideBar();
+  }
+  async shareInvite(code) {
+    const url = this.inviteUrl(code), text = `Join my Game Night room ${code}`;
+    try { if (navigator.share) { await navigator.share({ title: 'Game Night', text, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); UI.toast('🔗 Invite link copied'); } catch (e) { UI.toast('Copy the link shown under the code'); }
+  }
+  openOnline(prefill) {
+    Sound.init(); Sound.play('click'); this.leaveOnline();
+    this.ol = { url: this.served() ? this.defaultServer() : Store.get('server', this.defaultServer()), name: (Store.get('names', [''])[0] || ''), code: prefill || '', msg: '', gid: Store.get('ol_game', GAMES[0].meta.id), opts: null, bots: 0, level: Store.get('level', 'medium') };
+    const body = h('div'); this.olBody = body;
+    this.olModal = UI.modal(body, { onClose: () => { if (this.net && !this.net.started) this.leaveOnline(); this.olBody = null; } });
+    this.renderOnline();
+  }
+  renderOnline() {
+    const b = this.olBody; if (!b || !b.isConnected) return; const st = this.ol, n = this.net;
+    if (!n || !n.code) {                                                          // ---- connect form
+      const connect = async mode => {
+        const name = (st.name || '').trim() || 'Player'; this.leaveOnline(); const net = this.net = new Net(this); st.msg = 'Connecting…'; this.renderOnline();
+        try { await net.connect(st.url); } catch (e) { st.msg = e.message + ' — is server.js running?'; if (this.net === net) this.net = null; this.renderOnline(); return; }
+        st.msg = ''; Store.set('server', st.url); const nm = Store.get('names', ['', '', '', '']).slice(); nm[0] = name; Store.set('names', nm);
+        net.send(mode === 'create' ? { t: 'create', name } : { t: 'join', name, code: st.code });
+      };
+      b.replaceChildren(h('h3', {}, '🌐 Play Online'),
+        h('p', { class: 'hint', style: { textAlign: 'left' } }, 'Play with friends on their own phones. Needs the Game Night server running (node server.js).'),
+        h('label', {}, 'Your name'), h('input', { type: 'text', maxlength: 12, value: st.name, placeholder: 'Player', 'aria-label': 'Your name', oninput: e => { st.name = e.target.value; } }),
+        h('label', {}, 'Server address'), h('input', { type: 'text', value: st.url, 'aria-label': 'Server address', oninput: e => { st.url = e.target.value.trim(); } }),
+        h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => connect('create') }, '➕ Create room')),
+        h('label', {}, 'Or join a friend’s room'),
+        h('div', { class: 'row', style: { marginTop: 0 } },
+          h('input', { type: 'text', maxlength: 4, placeholder: 'CODE', 'aria-label': 'Room code', value: st.code, style: { width: '120px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '4px', fontWeight: 800 }, oninput: e => { st.code = e.target.value.toUpperCase(); } }),
+          h('button', { class: 'btn ghost', onclick: () => connect('join') }, 'Join')),
+        ...(st.msg ? [h('p', { class: 'hint', style: { color: '#fca5a5' } }, st.msg)] : []));
+      return;
+    }
+    const isHost = n.seat === 0, np = n.players.length, G = GAMES.find(g => g.meta.id === st.gid) || GAMES[0], m = G.meta;   // ---- lobby
+    if (!st.opts || st.optsFor !== m.id) { st.opts = Object.fromEntries((m.opts || []).map(o => [o.k, o.def])); st.optsFor = m.id; }
+    const maxBots = Math.max(0, m.max - np); st.bots = Math.min(st.bots, maxBots);
+    const total = np + st.bots, fits = np >= 1 && total >= m.min && total <= m.max, inv = this.inviteUrl(n.code);
+    b.replaceChildren(
+      h('h3', {}, '🌐 Room ', h('span', { style: { letterSpacing: '4px', color: 'var(--accent)' } }, n.code)),
+      h('div', {}, inv ? h('div', {}, h('p', { class: 'hint', style: { textAlign: 'left', wordBreak: 'break-all', userSelect: 'all' } }, inv),
+        h('div', { class: 'row', style: { marginTop: 6 } }, h('button', { class: 'btn small', onclick: () => this.shareInvite(n.code) }, '📤 Share invite link')))
+        : h('p', { class: 'hint', style: { textAlign: 'left' } }, 'Friends join with this code.')),
+      h('label', {}, `Players (${np}/4)`),
+      h('div', { class: 'chips' }, n.players.map((p, i) => h('span', { class: 'chip on' }, h('i', { class: 'dot', style: { background: PALETTE[i] } }), p + (i === n.seat ? ' (you)' : '') + (i === 0 ? ' 👑' : '')))),
+      isHost ? h('div', {}, h('label', {}, 'Pick a game'),
+        h('div', { class: 'chips' }, GAMES.map(g => h('button', { class: 'chip' + (g === G ? ' on' : ''), onclick: () => { st.gid = g.meta.id; st.opts = null; this.renderOnline(); } }, g.meta.emoji + ' ' + g.meta.name))),
+        (m.opts || []).map(o => h('button', { class: 'tog' + (st.opts[o.k] ? ' on' : ''), onclick: () => { st.opts[o.k] = !st.opts[o.k]; this.renderOnline(); } }, (st.opts[o.k] ? '✅ ' : '⬜ ') + o.label)),
+        maxBots > 0 ? h('div', {}, h('label', {}, '🤖 Computer players to fill empty seats'),
+          h('div', { class: 'seg' }, Array.from({ length: maxBots + 1 }, (_, i) => h('button', { class: st.bots === i ? 'on' : '', onclick: () => { st.bots = i; this.renderOnline(); } }, i)))) : null,
+        st.bots > 0 && !m.noLevel ? h('div', {}, h('label', {}, 'Computer skill'),
+          h('div', { class: 'seg' }, [['easy', '😊 Easy'], ['medium', '🙂 Medium'], ['hard', '😈 Hard']].map(([k, t]) => h('button', { class: st.level === k ? 'on' : '', onclick: () => { st.level = k; this.renderOnline(); } }, t)))) : null,
+        h('p', { class: 'hint' }, fits ? `Ready — ${m.name} with ${np} player${np > 1 ? 's' : ''}${st.bots ? ' + ' + st.bots + ' computer' : ''}` : m.min === m.max ? `${m.name} needs exactly 2 players (add a friend or a computer)` : `${m.name} needs ${m.min}–${m.max} players`),
+        h('div', { class: 'row' }, h('button', { class: 'btn', disabled: !fits, onclick: () => { Store.set('ol_game', m.id); Store.set('level', st.level); n.game({ k: 'start', id: m.id, opts: st.opts, seed: (Math.random() * 4294967296) >>> 0, bots: st.bots, level: st.level, players: n.players }); } }, 'Start ▶')))
+        : h('p', { class: 'hint' }, '⏳ Waiting for the host to pick a game…'),
+      h('div', { class: 'row' }, h('button', { class: 'btn ghost small', onclick: () => this.olModal.close() }, 'Leave room')));
+  }
+  leaveOnline() {
+    this.reconnecting = false; this.away.clear(); this.hideBar(); this.saveSess(null);
+    if (this.net) { const n = this.net; this.net = null; n.close(true); }
+    this.paintChat();
+  }
+  /** Timer that applies queued online inputs in order; runs only while an online session exists. */
+  startPump() {
+    if (this.pumpT) return;
+    this.pumpT = setInterval(() => { if (!this.net) { clearInterval(this.pumpT); this.pumpT = null; return; } this.pumpInputs(); }, 15);
+  }
+  onNet(net, m) {
+    if (net !== this.net) return; this.startPump();
+    if (m.t === 'room') { net.seat = m.seat; net.code = m.code; net.token = m.token; this.saveSess({ url: net.url, code: m.code, token: m.token }); }
+    else if (m.t === 'roster') { net.seat = m.you; net.players = m.players; this.renderOnline(); }
+    else if (m.t === 'pong') clearTimeout(net.pongT);
+    else if (m.t === 'error') {
+      if (m.rejoin) { net.fatal = true; const f = net.onRejoin; net.onRejoin = null; if (f) f(false); return; }
+      this.ol.msg = m.msg; this.leaveOnline(); this.renderOnline();
+    }
+    else if (m.t === 'rejoined') { net.seat = m.seat; net.code = m.code; net.token = m.token; const f = net.onRejoin; net.onRejoin = null; this.replay(net, m.log || []); if (f) f(true); }
+    else if (m.t === 'away') { if (m.seat !== net.seat) { this.away.set(m.seat, m.name); this.updateAwayBar(); } }
+    else if (m.t === 'back') { this.away.delete(m.seat); this.updateAwayBar(); }
+    else if (m.t === 'left') { this.away.delete(m.seat); if (this.game && this.cfg.net === net) this.onlineStopped(`${m.name} left the game`); }
+    else if (m.t === 'msg') { if (net.replaying) net.buffer.push(m); else this.applyMsg(net, m); }
+    else if (m.t === 'chat') this.onChat(net, m);
+  }
+  applyMsg(net, m) {
+    const d = m.d || {};
+    if (d.k === 'start') { if (net.gen === 0) this.onlineStart(net, d); }
+    else if (d.k === 'again') { if (this.game && d.gen === net.gen + 1) this.onlineLaunch(net, d.seed); }
+    else if (d.k === 'in') net.queue.push({ n: d.n, a: d.a });
+  }
+  onNetClose(net) {
+    if (net.onRejoin) { const f = net.onRejoin; net.onRejoin = null; f(false); return; }          // a reconnect attempt's socket died
+    if (net !== this.net) return; net.dead = true;
+    if (net.started || (this.game && this.game.cfg.net === net)) this.reconnect();
+    else if (this.olBody) { this.ol.msg = 'Disconnected from the server'; this.net = null; this.renderOnline(); }
+  }
+  /** Called when the socket is known to be dead/half-dead (phone woke up, network came back). */
+  lost(net) {
+    if (net !== this.net || net.dead || net.replaying) return; net.dead = true;
+    try { net.ws.onclose = null; net.ws.close(); } catch (e) { /* ignore */ }
+    this.reconnect();
+  }
+  /** Keep trying to get our seat back (the server holds it for ~2 minutes), then replay the game to catch up. */
+  async reconnect() {
+    if (this.reconnecting) return; const sess = this.sess || this.loadSess(); if (!sess) return; this.sess = sess; this.reconnecting = true;
+    const stop = () => { this.reconnecting = false; this.saveSess(null); this.hideBar(); };
+    this.showBar(`🔌 Reconnecting to room ${sess.code}…`, () => { stop(); if (this.game) this.toMenu(); else this.leaveOnline(); });
+    const t0 = Date.now(), wait = ms => new Promise(r => setTimeout(r, ms));
+    while (this.reconnecting && Date.now() - t0 < 150000) {
+      const net = new Net(this);
+      try { await net.connect(sess.url); } catch (e) { await wait(1500); continue; }
+      if (!this.reconnecting) { net.close(false); return; }
+      if (this.net && this.net !== net) this.net.close(false);
+      this.net = net;
+      const ok = await new Promise(res => { net.onRejoin = res; net.send({ t: 'rejoin', code: sess.code, token: sess.token }); });
+      if (ok) { this.reconnecting = false; return; }
+      if (net.fatal) break;
+      await wait(1500);
+    }
+    if (!this.reconnecting) return;
+    stop(); if (this.game) this.onlineStopped('Could not reconnect to the game'); else { this.net = null; UI.toast('That online game has ended'); }
+  }
+  /** Rebuild the game from the room's message log in fast-forward, then continue live. */
+  async replay(net, log) {
+    net.replaying = true; FF = true; this.showBar('⏩ Catching up with the game…');
+    const drained = async needOver => {
+      const t0 = Date.now();
+      while (this.net === net && Date.now() - t0 < 30000) { if (!net.queue.length && (!needOver || (this.game && this.game.over))) return; await new Promise(r => setTimeout(r, 3)); this.pumpInputs(); }
+    };
+    const step = async m => { if (m.d && m.d.k === 'again') await drained(true); this.applyMsg(net, m); };
+    try {
+      for (const e of log) { if (this.net !== net) return; await step(e); }
+      await drained(false);
+      while (net.buffer.length) { if (this.net !== net) return; await step(net.buffer.shift()); }   // live messages that arrived during the replay
+      net.replaying = false;
+      await drained(false);
+    } finally {
+      net.replaying = false;
+      setTimeout(() => { FF = false; this.reconnecting = false; this.updateAwayBar(); const g = this.game; if (g && g.over && g.fin && !document.querySelector('.winner')) g.showWinner(); }, 150);
+    }
+  }
+  onlineStart(net, d) {
+    net.started = true; this.olBody = null; this.away.clear(); this.paintChat();
+    const names = Array.isArray(d.players) && d.players.length ? d.players.map(x => String(x).slice(0, 12)) : net.players, bots = Math.max(0, Math.min(3, d.bots | 0));
+    this.onCfg = { id: d.id, opts: d.opts || {}, level: ['easy', 'medium', 'hard'].includes(d.level) ? d.level : 'hard',
+      players: [...names.map(name => ({ name, cpu: false })), ...Array.from({ length: bots }, (_, i) => ({ name: CPU_NAMES[i], cpu: true }))] };
+    this.onCarry = {}; this.onlineLaunch(net, d.seed);
+  }
+  onlineLaunch(net, seed) {
+    const c = this.onCfg, G = GAMES.find(g => g.meta.id === c.id);
+    net.gen++; net.consumed = 0; net.pending = false; net.queue = []; RNG.seed(seed);
+    this.launch(G, { mode: 'online', level: c.level, opts: Object.assign({}, c.opts), players: c.players, carry: this.onCarry, net });
+  }
+  /** Apply queued remote inputs in order, waiting until the local game is ready for each. */
+  pumpInputs() {
+    const n = this.net, g = this.game; if (!n || !g || g.cfg.net !== n || g.dead) return;
+    while (n.queue.length) {
+      const it = n.queue[0];
+      if (it.n < n.consumed) { n.queue.shift(); continue; }                       // stale duplicate
+      if (it.n > n.consumed || g.doInput(...it.a) === false) break;               // not our turn to process yet / game not ready
+      n.queue.shift(); n.consumed++; n.pending = false;
+    }
+  }
+  onlineStopped(msg) {
+    if (this.game) this.game.over = true; this.reconnecting = false; this.hideBar();
+    const md = UI.modal(h('div', {}, h('h3', {}, '🔌 ' + msg), h('p', { class: 'hint' }, 'The online game has ended.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { md.close(); this.toMenu(); } }, 'Back to menu'))), { dismiss: false });
+  }
+  /* ---- save / resume ---- */
+  saveGame(state) { if (!this.Cls || !this.cfg || this.cfg.net) return; Store.set('save', { id: this.Cls.meta.id, mode: this.cfg.mode, level: this.cfg.level, opts: this.cfg.opts, players: this.cfg.players, carry: this.cfg.carry, state }); }
+  clearSave() { if (this.cfg && this.cfg.net) return; if (Store.get('save', null)) Store.set('save', null); }
+  resume() {
+    const sv = Store.get('save', null), G = sv && GAMES.find(g => g.meta.id === sv.id); if (!G) return;
+    this.launch(G, { mode: sv.mode, level: sv.level, opts: sv.opts || {}, players: sv.players, carry: sv.carry || {}, resume: sv.state });
+  }
+  showRules(G) {
+    if (!G) return; const m = G.meta, md = UI.modal(h('div', {}, h('h3', {}, `${m.emoji} ${m.name}`), h('p', { class: 'hint', style: { textAlign: 'left' } }, 'How to play'),
+      h('ul', { class: 'rules' }, m.rules.map(r => h('li', {}, r))), h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => md.close() }, 'Got it'))));
+  }
+  buildMenu() {
+    const last = Store.get('last'), sv = Store.get('save', null), SG = sv && GAMES.find(g => g.meta.id === sv.id), theme = Store.get('theme', 'classic');
+    this.menuEl.replaceChildren(
+      h('div', { class: 'hero' }, h('div', { class: 'logo' }, '🎲'), h('h1', {}, 'Game Night'), h('p', {}, 'Six classics · play the computer or pass the phone'),
+        h('div', { class: 'chips', style: { justifyContent: 'center', marginTop: '12px' } }, h('span', { class: 'chip' }, '🤖 vs Computer'), h('span', { class: 'chip' }, '👥 Pass & Play'), h('span', { class: 'chip' }, '🔊 Sound FX'))),
+      h('div', { class: 'resume' }, h('button', { class: 'btn', onclick: () => this.openOnline() }, '🌐 Play Online'),
+        this.installEv ? h('button', { class: 'btn ghost', onclick: async () => { const e = this.installEv; this.installEv = null; e.prompt(); try { await e.userChoice; } catch (x) { /* ignore */ } this.buildMenu(); } }, '📲 Install app') : null,
+        SG ? h('button', { class: 'btn ghost', onclick: () => this.resume() }, `▶ Resume ${SG.meta.emoji} ${SG.meta.name}`) : null,
+        SG ? h('button', { class: 'btn ghost small', 'aria-label': 'Discard saved game', onclick: () => { this.clearSave(); this.buildMenu(); } }, '✕') : null),
+      h('div', { class: 'cards' }, GAMES.map((G, gi) => {
+        const m = G.meta;
+        return h('button', { class: 'gcard', style: { '--c1': m.c1, '--c2': m.c2, '--i': gi }, onclick: () => this.openSetup(G) },
+          h('span', { class: 'ghost' }, m.emoji), last === m.id ? h('span', { class: 'badge' }, '★ Last played') : null,
+          h('span', { class: 'ico' }, m.emoji), h('strong', {}, m.name), h('small', {}, m.tag), h('em', {}, m.min === m.max ? '2 players' : `${m.min}–${m.max} players`));
+      })),
+      h('div', { class: 'foot' }, h('div', { class: 'chips', style: { justifyContent: 'center' } }, h('span', {}, 'Board theme:'),
+        ['classic', 'neon', 'pastel'].map(t => h('button', { class: 'chip' + (theme === t ? ' on' : ''), onclick: () => { Store.set('theme', t); document.documentElement.dataset.theme = t; this.buildMenu(); } }, '🎨 ' + t))),
+        h('p', {}, 'Your names, settings and unfinished game are remembered on this device')));
+  }
+  /** Setup sheet: mode, skill, player count, names, game options. */
+  openSetup(G) {
+    const m = G.meta; Sound.init(); Sound.play('click');
+    const defOpts = Object.fromEntries((m.opts || []).map(o => [o.k, o.def]));
+    const st = { mode: Store.get('mode', 'cpu'), level: Store.get('level', 'medium'), count: Store.get('count_' + m.id, m.min === m.max ? 2 : 3),
+      names: Store.get('names', ['', '', '', '']).slice(), opts: Object.assign(defOpts, Store.get('opts_' + m.id, {})) };
+    st.count = Math.max(m.min, Math.min(m.max, st.count)); while (st.names.length < 4) st.names.push('');
+    const body = h('div'), modal = UI.modal(body);
+    const draw = () => {
+      const humans = st.mode === 'cpu' ? 1 : st.count, cpus = st.count - humans;
+      body.replaceChildren(
+        h('h3', {}, `${m.emoji} ${m.name}`),
+        h('div', { class: 'seg' }, [['cpu', '🤖 Play vs Computer'], ['pass', '👥 Pass & Play']].map(([k, t]) => h('button', { class: st.mode === k ? 'on' : '', onclick: () => { st.mode = k; draw(); } }, t))),
+        st.mode === 'cpu' && !m.noLevel ? h('div', {}, h('label', {}, 'Computer skill'),
+          h('div', { class: 'seg' }, [['easy', '😊 Easy'], ['medium', '🙂 Medium'], ['hard', '😈 Hard']].map(([k, t]) => h('button', { class: st.level === k ? 'on' : '', onclick: () => { st.level = k; draw(); } }, t)))) : null,
+        m.max > m.min ? h('div', {}, h('label', {}, st.mode === 'cpu' ? 'Total players (you + computers)' : 'Number of players'),
+          h('div', { class: 'seg' }, Array.from({ length: m.max - m.min + 1 }, (_, i) => m.min + i).map(n => h('button', { class: st.count === n ? 'on' : '', onclick: () => { st.count = n; draw(); } }, n)))) : h('p', { class: 'hint' }, 'This game is for 2 players'),
+        h('label', {}, humans > 1 ? 'Player names' : 'Your name'),
+        ...Array.from({ length: humans }, (_, i) => h('input', { type: 'text', maxlength: 12, placeholder: 'Player ' + (i + 1), value: st.names[i] || '', 'aria-label': 'Player ' + (i + 1) + ' name', oninput: e => { st.names[i] = e.target.value; } })),
+        cpus ? h('p', { class: 'hint' }, 'Computer: ' + CPU_NAMES.slice(0, cpus).join(', ')) : null,
+        (m.opts || []).length ? h('div', {}, h('label', {}, 'Game options'), m.opts.map(o => h('button', { class: 'tog' + (st.opts[o.k] ? ' on' : ''), onclick: () => { st.opts[o.k] = !st.opts[o.k]; draw(); } }, (st.opts[o.k] ? '✅ ' : '⬜ ') + o.label))) : null,
+        h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: () => modal.close() }, 'Cancel'), h('button', { class: 'btn ghost', onclick: () => this.showRules(G) }, '❓ Rules'), h('button', { class: 'btn', onclick: go }, 'Start ▶')));
+    };
+    const go = () => {
+      const humans = st.mode === 'cpu' ? 1 : st.count;
+      const players = Array.from({ length: st.count }, (_, i) => i < humans ? { name: (st.names[i] || '').trim() || 'Player ' + (i + 1), cpu: false } : { name: CPU_NAMES[i - humans], cpu: true });
+      Store.set('last', m.id); Store.set('mode', st.mode); Store.set('level', st.level); Store.set('count_' + m.id, st.count); Store.set('names', st.names); Store.set('opts_' + m.id, st.opts);
+      modal.close(); this.launch(G, { mode: st.mode, level: st.level, opts: Object.assign({}, st.opts), players, carry: {} });
+    };
+    draw();
+  }
+  launch(G, cfg) {
+    this.Cls = G; this.cfg = cfg; if (this.game) this.game.destroy(); this.game = null; UI.closeAll(); if (!cfg.net) RNG.off();
+    this.stage.replaceChildren(); this.setTools([]); this.setScore('');
+    this.menuEl.classList.add('hidden'); this.gameEl.classList.remove('hidden');
+    this.titleEl.textContent = `${G.meta.emoji} ${G.meta.name}`; this.setTurn(null); document.body.dataset.game = G.meta.id;
+    this.game = new G(this, this.stage, cfg); this.game.start(); this.game.showWins(); window.scrollTo(0, 0);
+  }
+  restart() {                                                                     // "Play Again": same settings; carry (scores, wins) kept
+    const n = this.cfg.net;
+    if (n && n.dead) return UI.toast('🔌 Reconnecting…');
+    if (n) { n.game({ k: 'again', gen: n.gen + 1, seed: (Math.random() * 4294967296) >>> 0 }); return; }   // online: everyone restarts together, in server order
+    this.launch(this.Cls, Object.assign({}, this.cfg, { resume: null }));
+  }
+  toMenu() {
+    this.leaveOnline(); RNG.off(); if (this.game) { this.game.destroy(); this.game = null; } UI.closeAll();
+    this.gameEl.classList.add('hidden'); this.menuEl.classList.remove('hidden'); delete document.body.dataset.game; this.buildMenu(); window.scrollTo(0, 0);
+  }
+}
+
+/* =====================================================================
+   6. BOOT
+   ===================================================================== */
+function boot() {
+  window.hub = new Hub(document.getElementById('app'));
+  if (/^https?:$/.test(location.protocol)) {                      // installable app + offline single-player (only when served by server.js)
+    document.head.append(h('link', { rel: 'manifest', href: 'manifest.webmanifest' }), h('link', { rel: 'apple-touch-icon', href: 'icon-192.png' }),
+      h('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }), h('meta', { name: 'mobile-web-app-capable', content: 'yes' }));
+    if ('serviceWorker' in navigator && SPEED === 1) navigator.serviceWorker.register('sw.js').catch(() => { /* optional */ });
+  }
+}
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+}
+if (typeof module !== 'undefined' && module.exports) {   // lets the logic be unit-tested in Node
+  module.exports = { GAMES, Hub, Game, slGenerate, tttMinimax, tttWinner, c4Search, c4Find, c4Row, ckGen, ckApply, ckClone, ckSearch, LD_TRACK, LD_HC, LD_ST, LD_SAFE, slXY, SL_SNAKES, SL_LADDERS };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "game-night",
+  "version": "1.0.0",
+  "description": "Game Night: Ludo, Snakes & Ladders, Tic-Tac-Toe, Connect Four, Checkers and Crazy Eights in one HTML file, with an online relay server.",
+  "private": true,
+  "scripts": {
+    "start": "node game-night-server/server.js",
+    "test": "node game-night-tests/logic.test.js && node game-night-server/server.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}
