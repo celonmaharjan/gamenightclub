@@ -78,18 +78,32 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;z-index:130;pointe
 @keyframes pulse{to{transform:scale(1.14)}}
 
 /* Dice (shared by Ludo and Snakes & Ladders) */
-.dice{--dc:#fff;flex:none;width:64px;height:64px;border-radius:16px;border:0;padding:8px;background:linear-gradient(145deg,#fff,#e5e7eb);
-  display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);box-shadow:0 5px 0 #9ca3af,0 10px 18px #0006;position:relative;transition:transform .15s;touch-action:manipulation}
-.dice::after{content:'';position:absolute;inset:0;border-radius:16px;box-shadow:inset 0 0 0 3px var(--dc);opacity:.9;pointer-events:none}
-.dice i{width:78%;height:78%;margin:auto;border-radius:50%;background:transparent}
-.dice i.on{background:#1f2937;box-shadow:inset 0 2px 3px #000a}
-.dice.ready{animation:ring 1.3s ease-out infinite}                 /* your turn: a pulsing ring in your colour */
-.dice.ready:active{transform:translateY(3px) scale(.97)}
-.dice.rolling{animation:tumble .32s linear infinite}
-.dice.land{animation:land .35s ease-out}
-@keyframes ring{0%{box-shadow:0 5px 0 #9ca3af,0 0 0 0 var(--dc)}70%{box-shadow:0 5px 0 #9ca3af,0 0 0 14px transparent}100%{box-shadow:0 5px 0 #9ca3af,0 0 0 0 transparent}}
-@keyframes tumble{0%{transform:rotate(0) scale(1)}25%{transform:rotate(90deg) scale(.85) translateY(-7px)}50%{transform:rotate(180deg) scale(1)}75%{transform:rotate(270deg) scale(.85) translateY(-7px)}100%{transform:rotate(360deg) scale(1)}}
-@keyframes land{0%{transform:scale(1.25)}60%{transform:scale(.93)}100%{transform:scale(1)}}
+/* 3D dice: a CSS cube (6 faces) that tumbles and lands on the rolled face */
+.dice{--dc:#fff;--s:56px;flex:none;width:68px;height:72px;border:0;padding:0;background:none;position:relative;perspective:420px;
+  display:grid;place-items:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.dice .hop{position:relative;width:var(--s);height:var(--s);transform-style:preserve-3d;transform:rotateX(-16deg) rotateY(20deg)}   /* tilt so 3 faces show */
+.dice .cube{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.2,.7,.25,1)}
+.dice .face{position:absolute;inset:0;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:7px;border-radius:12px;
+  background:linear-gradient(145deg,#fff,#e8eaef);box-shadow:inset 0 0 0 3px var(--dc),inset 0 -4px 8px #0002;backface-visibility:hidden}
+.dice .face i{width:72%;height:72%;margin:auto;border-radius:50%}
+.dice .face i.on{background:radial-gradient(circle at 35% 30%,#4b5563,#111827);box-shadow:inset 0 1px 2px #000a}
+.dice .f1{transform:translateZ(calc(var(--s) / 2))}.dice .f6{transform:rotateY(180deg) translateZ(calc(var(--s) / 2))}
+.dice .f3{transform:rotateY(90deg) translateZ(calc(var(--s) / 2))}.dice .f4{transform:rotateY(-90deg) translateZ(calc(var(--s) / 2))}
+.dice .f5{transform:rotateX(90deg) translateZ(calc(var(--s) / 2))}.dice .f2{transform:rotateX(-90deg) translateZ(calc(var(--s) / 2))}
+.dice .f1 i.on{background:radial-gradient(circle at 35% 30%,#f87171,#b91c1c)}                       /* classic red ace */
+.dice .shd{position:absolute;left:50%;bottom:0;width:58px;height:12px;margin-left:-29px;border-radius:50%;background:#000;opacity:.4;filter:blur(4px);transition:transform .35s,opacity .35s}
+.dice::before{content:'';position:absolute;inset:4px 2px 6px;border-radius:18px;pointer-events:none}
+.dice.ready::before{animation:ring 1.3s ease-out infinite}            /* your turn: a pulsing ring in your colour */
+.dice.ready:active .hop{transform:rotateX(-16deg) rotateY(20deg) scale(.93)}
+.dice.ready .hop{animation:breathe 1.3s ease-in-out infinite}
+.dice.rolling .hop{animation:hop .7s cubic-bezier(.3,.6,.4,1)}
+.dice.rolling .shd{animation:shd .7s cubic-bezier(.3,.6,.4,1)}
+@keyframes ring{0%{box-shadow:0 0 0 0 var(--dc)}70%{box-shadow:0 0 0 14px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes breathe{50%{transform:rotateX(-16deg) rotateY(20deg) translateY(-3px)}}
+@keyframes hop{0%{transform:rotateX(-16deg) rotateY(20deg)}35%{transform:rotateX(-16deg) rotateY(20deg) translateY(-26px) scale(1.08)}70%{transform:rotateX(-16deg) rotateY(20deg) translateY(0)}
+  82%{transform:rotateX(-16deg) rotateY(20deg) translateY(-6px)}100%{transform:rotateX(-16deg) rotateY(20deg)}}
+@keyframes shd{35%{transform:scale(.55);opacity:.18}70%{transform:scale(1);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.dice .cube{transition-duration:.05s}}
 /* Dice tray: pinned to the bottom of the screen so the dice is always reachable, tinted with the current player's colour */
 .dicebar{--dc:#fff;position:sticky;bottom:max(8px,env(safe-area-inset-bottom));z-index:6;display:flex;align-items:center;gap:14px;
   width:min(100%,560px);margin:12px auto 8px;padding:10px 16px 10px 12px;border-radius:20px;background:#0d0b26f0;backdrop-filter:blur(10px);
@@ -264,7 +278,6 @@ body[data-game=cards]{background:radial-gradient(900px 600px at 0 0,#10b98155,tr
 @keyframes wig{from{transform:skewX(-2.2deg) scaleY(1)}to{transform:skewX(2.2deg) scaleY(1.015)}}
 .cg-table{background:radial-gradient(ellipse at 50% 35%,#1fa04d,#14532d 75%);box-shadow:inset 0 0 50px #000a,0 10px 30px #0008}
 .pc{box-shadow:0 3px 8px #0009,inset 0 0 0 1px #0002}
-.dice{box-shadow:0 5px 0 #9ca3af,0 12px 22px #0007}
 @media (prefers-reduced-motion:reduce){.bgfx,.logo,.snk,.hero h1{animation:none!important}}
 
 /* ---------- 6. Features: themes, tools, rules, effects, landscape ---------- */
@@ -542,28 +555,40 @@ const UI = {
 /** Animated six-sided die rendered with CSS pips. Used by Ludo and Snakes & Ladders. */
 class Dice {
   static PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  /** Cube rotation that brings face v to the front (faces: 1 front, 6 back, 3 right, 4 left, 5 top, 2 bottom). */
+  static FACE = { 1: [0, 0], 6: [0, 180], 3: [0, -90], 4: [0, 90], 5: [-90, 0], 2: [90, 0] };
   constructor(onUser) {
-    this.value = 1; this.onClick = null; this.onUser = onUser || null;
-    this.pips = Array.from({ length: 9 }, () => h('i'));
-    this.el = h('button', { class: 'dice', type: 'button', 'aria-label': 'Roll the dice', onclick: () => { if (this.onUser) this.onUser(); else this.fire(); } }, this.pips);
-    this.show(1); this.enable(false);
+    this.value = 1; this.onClick = null; this.onUser = onUser || null; this.turns = [0, 0];
+    const faces = [1, 2, 3, 4, 5, 6].map(v => h('div', { class: 'face f' + v }, Array.from({ length: 9 }, (_, i) => h('i', { class: Dice.PIPS[v].includes(i) ? 'on' : '' }))));
+    this.cube = h('div', { class: 'cube' }, faces);
+    this.el = h('button', { class: 'dice', type: 'button', 'aria-label': 'Roll the dice', onclick: () => { if (this.onUser) this.onUser(); else this.fire(); } },
+      h('i', { class: 'shd' }), h('div', { class: 'hop' }, this.cube));
+    this.show(1, true); this.enable(false);
   }
   /** Trigger a roll request (a local click, or a replayed remote one). */
   fire() { if (this.onClick) this.onClick(); }
-  show(v) { this.value = v; this.pips.forEach((p, i) => p.classList.toggle('on', Dice.PIPS[v].includes(i))); }
+  /** Turn the cube so face v is in front. `still` = no animation; otherwise add whole extra spins so it tumbles on the way. */
+  show(v, still) {
+    this.value = v; const [fx, fy] = Dice.FACE[v];
+    if (!still) { this.turns[0] += 2 + crand(2); this.turns[1] += 1 + crand(2); }                       // cosmetic: how many flips (not game randomness)
+    this.cube.style.transition = still || FF ? 'none' : '';
+    this.cube.style.transform = `rotateX(${this.turns[0] * 360 + fx}deg) rotateY(${this.turns[1] * 360 + fy}deg)`;
+    this.el.setAttribute('aria-label', `Dice showing ${v}. Roll the dice`);
+  }
   /** The dice tray: dice + status text + last rolled number, tinted with the current player's colour. */
   bar(info) { this.valEl = h('b', { class: 'val', 'aria-live': 'polite' }); this.barEl = h('div', { class: 'dicebar' }, this.el, info, this.valEl); return this.barEl; }
   setColor(c) { this.el.style.setProperty('--dc', c); if (this.barEl) { this.barEl.style.setProperty('--dc', c); this.valEl.textContent = ''; } }
   enable(on) { this.el.disabled = !on; this.el.classList.toggle('ready', on); }
   /** Resolves on the next click of the (enabled) die. */
   waitClick() { return new Promise(res => { this.onClick = () => { this.onClick = null; res(); }; }); }
-  /** Animated roll; resolves with 1..6. */
+  /** Animated roll; resolves with 1..6. The number is drawn up front (synchronously, while the game is surely alive) so the cube can land on it. */
   async roll(game) {
-    Sound.play('dice'); this.el.classList.add('rolling');
-    for (let i = 0; i < (FF ? 0 : 10); i++) { this.show(1 + crand(6)); await sleep(62); }
-    if (game) game.check();                 // the game was closed mid-roll (e.g. re-sync rebuilt it): don't consume the new game's random numbers
-    const v = 1 + rand(6); this.show(v); this.el.classList.remove('rolling');
-    if (!FF) { this.el.classList.remove('land'); void this.el.offsetWidth; this.el.classList.add('land'); }
+    if (game) game.check();
+    const v = 1 + rand(6); Sound.play('dice');
+    if (FF) { this.show(v, true); } else {
+      this.el.classList.remove('rolling'); void this.el.offsetWidth; this.el.classList.add('rolling'); this.show(v);
+      await sleep(720); if (game) game.check(); this.el.classList.remove('rolling');
+    }
     if (this.valEl) this.valEl.textContent = v; return v;
   }
 }
