@@ -301,9 +301,29 @@ button.chip{color:inherit;cursor:pointer}
 @media (max-width:420px){.bar{gap:6px}.bar h2{font-size:17px}.bar .btn.small{padding:8px 10px}}
 #netbar{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:140;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 20px);
   background:#7c2d12f2;color:#fff;border:1px solid #fb923c;padding:8px 14px;border-radius:999px;font-weight:700;font-size:14px;box-shadow:0 8px 24px #000a;animation:pop .2s}
+/* Dots & Boxes */
+.db{--n:4;display:grid;width:min(94vw,430px);aspect-ratio:1;margin:8px auto;grid-template-columns:repeat(var(--n),14px 1fr) 14px;grid-template-rows:repeat(var(--n),14px 1fr) 14px;
+  padding:10px;border-radius:18px;background:#140f35f0;border:1px solid var(--line);position:relative;z-index:1}
+.db-dot{width:14px;height:14px;border-radius:50%;background:#e5e7eb;box-shadow:0 0 0 3px #0003;z-index:2}
+.db-ln{position:relative;z-index:1;border:0;padding:0;background:none;cursor:pointer;touch-action:manipulation}
+.db-ln.hz{margin:-8px 0}.db-ln.vt{margin:0 -8px}                       /* 30px tap target around a thin line */
+.db-ln::before{content:'';position:absolute;border-radius:6px;background:#ffffff1a;transition:background .15s}
+.db-ln.hz::before{left:2px;right:2px;top:12px;bottom:12px}.db-ln.vt::before{top:2px;bottom:2px;left:12px;right:12px}
+.db.mine .db-ln:not(.on):hover::before,.db.mine .db-ln:not(.on):focus-visible::before{background:var(--cc);opacity:.6}
+.db-ln.on{cursor:default}.db-ln.on::before{background:var(--pc);box-shadow:0 0 10px var(--pc);animation:pop .2s}
+.db-box{display:grid;place-items:center;font-weight:900;font-size:clamp(16px,5vw,26px);color:#fff;border-radius:6px;margin:3px}
+.db-box.own{background:color-mix(in srgb,var(--pc) 55%,transparent);animation:pop .25s}
+#chatpanel .people{display:flex;flex-wrap:wrap;gap:6px}#chatpanel .people:empty{display:none}
+.pp{display:inline-flex;align-items:center;gap:4px;padding:3px 4px 3px 8px;border-radius:999px;background:#fff1;font-size:13px;font-weight:700}
+.pp.gone{opacity:.6}.pp button{min-width:34px;min-height:34px;border:0;border-radius:999px;background:#fff1;color:inherit;font-size:14px}
+.kick{margin-left:4px;min-width:30px;min-height:30px;border:0;border-radius:999px;background:#ef444433;color:#fecaca;font-weight:800;padding:0 8px}
+#updbtn{position:fixed;left:12px;bottom:max(14px,env(safe-area-inset-bottom));z-index:150;box-shadow:0 8px 20px #000a}
+table.stats{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}table.stats th,table.stats td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--line)}
+table.stats td:first-child,table.stats th:first-child{text-align:left}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}.bgfx{display:none}}
 /* online chat: emoji reactions with sounds + push-to-talk voice clips */
-#chatbtn{position:fixed;right:12px;bottom:max(14px,env(safe-area-inset-bottom));z-index:70;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);background:#000a;backdrop-filter:blur(6px);font-size:24px;display:grid;place-items:center;box-shadow:0 6px 18px #0008}
-#chatpanel{position:fixed;right:12px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 58px);z-index:70;width:min(300px,calc(100vw - 24px));padding:12px;border-radius:16px;background:#111a;backdrop-filter:blur(12px);border:1px solid var(--line);box-shadow:0 12px 32px #000a;display:grid;gap:10px;animation:pop .15s}
+#chatbtn{position:fixed;right:12px;bottom:max(14px,env(safe-area-inset-bottom));z-index:120;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);background:#000a;backdrop-filter:blur(6px);font-size:24px;display:grid;place-items:center;box-shadow:0 6px 18px #0008}
+#chatpanel{position:fixed;right:12px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 58px);z-index:120;width:min(300px,calc(100vw - 24px));padding:12px;border-radius:16px;background:#111a;backdrop-filter:blur(12px);border:1px solid var(--line);box-shadow:0 12px 32px #000a;display:grid;gap:10px;animation:pop .15s}
 #chatpanel .emo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 #chatpanel .emo button{height:48px;border-radius:12px;border:1px solid var(--line);background:#fff1;font-size:26px}
 #chatpanel .emo button:active{transform:scale(.9);background:#fff3}
@@ -369,6 +389,8 @@ const RNG = { f: null,
   seed(s) { let a = s >>> 0; this.f = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
   off() { this.f = null; }, next() { return this.f ? this.f() : Math.random(); } };
 const rand = n => Math.floor(RNG.next() * n);
+/** Short FNV-1a hash of a string (used to compare game states between online players). */
+function hash32(str) { let x = 0x811c9dc5; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 0x01000193); } return (x >>> 0).toString(36); }
 const crand = n => Math.floor(Math.random() * n);             // cosmetic randomness only (never touches game state)
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -477,6 +499,7 @@ const UI = {
   },
   confetti() {
     this.stopConfetti();
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;   // respect 'reduce motion'
     const cv = h('canvas', { class: 'confetti' }); document.body.append(cv); this.cv = cv;
     const ctx = cv.getContext('2d'); if (!ctx) return;
     const W = cv.width = innerWidth, H = cv.height = innerHeight;
@@ -522,9 +545,10 @@ class Dice {
   /** Resolves on the next click of the (enabled) die. */
   waitClick() { return new Promise(res => { this.onClick = () => { this.onClick = null; res(); }; }); }
   /** Animated roll; resolves with 1..6. */
-  async roll() {
+  async roll(game) {
     Sound.play('dice'); this.el.classList.add('rolling');
     for (let i = 0; i < (FF ? 0 : 10); i++) { this.show(1 + crand(6)); await sleep(62); }
+    if (game) game.check();                 // the game was closed mid-roll (e.g. re-sync rebuilt it): don't consume the new game's random numbers
     const v = 1 + rand(6); this.show(v); this.el.classList.remove('rolling'); return v;
   }
 }
@@ -544,6 +568,9 @@ class Game {
     if (!this.net) return this.doInput(k, ...a);
     if (this.over || !this.isMine(this.cur)) return; if (this.net.dead) return UI.toast('🔌 Reconnecting…'); this.net.input([k, ...a]);
   }
+  /** Online: player `s` left and is now a computer (players[s].cpu was just set). If the game is sitting waiting for that
+   *  player's input, start the computer's move. Return false if the game is mid-animation (it is retried), true when done. */
+  wake(s) { return true; }
   /** Apply one input. Return false if the game isn't ready for it yet (it will be retried), true when consumed. */
   doInput() { return true; }
   start() { }
@@ -558,12 +585,16 @@ class Game {
   tools(list) { this.hub.setTools(list); }
   addWin(i) { const w = this.cfg.carry.wins || (this.cfg.carry.wins = this.players.map(() => 0)); w[i]++; }
   showWins() { const w = this.cfg.carry.wins; this.hub.setScore(w ? '🏅 ' + this.players.map((p, i) => `${p.name} ${w[i]}`).join(' · ') : ''); }
-  turn(i, extra) { const p = this.players[i]; this.hub.setTurn(this.net && this.isMine(i) ? 'You' : p.name + (p.cpu ? ' 🤖' : ''), this.colorOf(i), extra); this.save(); }
+  turn(i, extra) {
+    const p = this.players[i], mine = !!(this.net && this.isMine(i) && !p.cpu);
+    if (mine && !this.wasMine && !FF && !Sound.muted && navigator.vibrate) try { navigator.vibrate(45); } catch (e) { /* ignore */ }   // buzz when it becomes your turn
+    this.wasMine = mine; this.hub.setTurn(this.net && this.isMine(i) ? 'You' : p.name + (p.cpu ? ' 🤖' : ''), this.colorOf(i), extra); this.save(); }
   toast(m) { UI.toast(m); }
   /** End the game: sound, turn bar, then the winner overlay with confetti. o.winner = player index (for the win tally). */
   finish(title, sub, o = {}) {
     if (this.dead) return; this.over = true; this.hub.clearSave();
     if (o.winner != null) this.addWin(o.winner); this.showWins();
+    const streak = this.hub.recordResult(this, o); if (streak) sub = (sub ? sub + ' · ' : '') + streak;
     this.fin = { title, sub, o }; Sound.play('win'); this.hub.setTurn('Game over', '#fbbf24', '');
     if (!FF) setTimeout(() => this.showWinner(), (o.delay ?? 700) / SPEED);                  // (while catching up after a reconnect it is shown when the catch-up ends)
   }
@@ -604,6 +635,7 @@ class TicTacToe extends Game {
     this.run(() => this.next());
   }
   doInput(k, i) { if (this.busy || this.over) return false; this.click(i); return true; }
+  wake(s) { if (this.over || this.cur !== s) return true; if (this.busy) return false; this.run(() => this.next()); return true; }
   serialize() { return { b: this.b, cur: this.cur, moves: this.moves }; }
   paint(i, m) { const c = this.cells[i]; c.textContent = m; c.className = 'ttt-cell ' + m; c.disabled = true; }
   clear(i) { const c = this.cells[i]; c.textContent = ''; c.className = 'ttt-cell'; c.disabled = false; }
@@ -628,7 +660,7 @@ class TicTacToe extends Game {
   }
   best() {
     const me = this.mark[this.cur], b = this.b, free = b.map((x, i) => x ? -1 : i).filter(i => i >= 0);
-    if (this.level === 'easy' || (this.level === 'medium' && Math.random() < .5)) return free[rand(free.length)];   // lets you win sometimes
+    if (this.level === 'easy' || (this.level === 'medium' && rand(100) < 50)) return free[rand(free.length)];   // lets you win sometimes
     if (free.length === 9) return [0, 2, 6, 8, 4][rand(5)];            // opening move: any corner/centre is optimal
     let bestS = -Infinity, mv = [];
     for (const i of free) {
@@ -708,10 +740,11 @@ class ConnectFour extends Game {
     this.run(() => this.next());
   }
   doInput(k, c) { if (this.busy || this.over) return false; this.click(c); return true; }
+  wake(s) { if (this.over || this.cur !== s) return true; if (this.busy) return false; this.run(() => this.next()); return true; }
   serialize() { return { g: this.g, cur: this.cur, moves: this.moves }; }
   cpuCol() {
     const valid = [0, 1, 2, 3, 4, 5, 6].filter(c => this.g[0][c] == null);
-    if (this.level === 'easy' && Math.random() < .4) return valid[rand(valid.length)];
+    if (this.level === 'easy' && rand(100) < 40) return valid[rand(valid.length)];
     const depth = this.level === 'easy' ? 2 : this.level === 'medium' ? 3 : 5;
     return c4Search(this.g, depth, -Infinity, Infinity, true, this.cur).c;
   }
@@ -802,7 +835,8 @@ class Checkers extends Game {
     rules: ['Red moves up, white moves down, diagonally on the dark squares.', 'If you can jump an enemy piece you MUST — and keep jumping if you can.', 'Reach the far row to become a king 👑 (moves both ways).', 'Capture or block every enemy piece to win.', 'Tap a piece (they pulse), then a green dot. ↩ Undo takes back your last turn.'] };
   colorOf(i) { return i ? '#e2e8f0' : '#ef4444'; }
   start() {
-    const r = this.resume; this.board = Array(64).fill(null); this.cur = r ? r.cur : 0; this.busy = false; this.quiet = r ? r.quiet : 0; this.hist = [];
+    const r = this.resume, cr = this.cfg.carry; cr.round = cr.round || 0; this.board = Array(64).fill(null); this.cur = r ? r.cur : cr.round++ % 2;   // alternate who starts
+    this.busy = false; this.quiet = r ? r.quiet : 0; this.hist = [];
     this.sqs = Array.from({ length: 64 }, (_, i) => {
       const dark = (((i >> 3) + (i & 7)) % 2) === 1;
       return h('div', { class: 'ck-sq ' + (dark ? 'dk' : 'lt'), role: dark ? 'button' : null, tabindex: dark ? 0 : null, 'aria-label': dark ? 'Square ' + ((i >> 3) + 1) + ',' + ((i & 7) + 1) : null,
@@ -822,6 +856,15 @@ class Checkers extends Game {
     this.beginTurn();
   }
   doInput(k, i) { if (this.busy || this.over) return false; this.click(i); return true; }
+  wake(s) {
+    if (this.over || this.cur !== s) return true; if (this.busy) return false;
+    if (this.step > 0) {                                                  // they left half-way through a multi-jump: finish it
+      const mv = this.cands[0]; this.busy = true;
+      this.run(async () => { for (;;) { const last = this.step === mv.path.length - 1; await this.advance(mv.path[this.step]); if (last) break; } });
+      return true;
+    }
+    this.sel = null; this.cands = []; this.paint(); this.run(() => this.cpuMove()); return true;
+  }
   serialize() { return { board: this.board.map(pc => pc && { p: pc.p, k: pc.k }), cur: this.cur, quiet: this.quiet }; }
   put(pc, i) { pc.el.style.left = (i & 7) * 12.5 + '%'; pc.el.style.top = (i >> 3) * 12.5 + '%'; }
   snap() { return { cells: this.board.map(pc => pc && { pc, k: pc.k }), cur: this.cur, quiet: this.quiet }; }
@@ -888,7 +931,7 @@ class Checkers extends Game {
   async cpuMove() {
     this.busy = true; await this.wait(650);
     const me = this.cur, lv = this.level; let pool = this.legal;
-    if (!(lv === 'easy' && Math.random() < .45)) {                    // easy sometimes plays a random legal move
+    if (!(lv === 'easy' && rand(100) < 45)) {                    // easy sometimes plays a random legal move
       const depth = lv === 'hard' ? 3 : lv === 'medium' ? 1 : 0; let best = -Infinity; pool = [];
       for (const mv of this.legal) {
         const b = ckClone(this.board); ckApply(b, mv); const s = ckSearch(b, 1 - me, depth, -Infinity, Infinity, me);
@@ -931,7 +974,8 @@ class Ludo extends Game {
   start() {
     const n = this.players.length;
     this.colors = n === 2 ? [0, 2] : n === 3 ? [0, 1, 2] : [0, 1, 2, 3];
-    this.cur = 0; this.sixes = 0; this.pick = null; this.dice = new Dice(() => this.ui('d'));
+    const cr = this.cfg.carry; cr.round = cr.round || 0; this.cur = this.resume ? 0 : cr.round++ % this.players.length;   // alternate who starts
+    this.sixes = 0; this.pick = null; this.dice = new Dice(() => this.ui('d'));
     this.tok = this.players.map((_, p) => Array.from({ length: 4 }, (_, ti) => {
       const tk = { p, ci: this.colors[p], ti, pos: -1, vpos: -1 };
       tk.el = h('div', { class: 'tk c' + tk.ci, role: 'button', tabindex: 0, 'aria-label': `${LD_COL[tk.ci].n} token ${ti + 1}`, onclick: () => this.ui('t', tk.p, tk.ti),
@@ -1006,6 +1050,12 @@ class Ludo extends Game {
     if (k === 'd') { if (!this.dice.onClick) return false; this.dice.fire(); return true; }
     if (!this.pick) return false; this.tokClick(this.tok[a][b]); return true;
   }
+  wake(s) {
+    if (this.over || this.cur !== s) return true;
+    if (this.dice.onClick) { this.dice.fire(); return true; }
+    if (this.pick) { this.pick.res(this.aiPick(this.pick.moves)); return true; }
+    return false;
+  }
   serialize() { return { tok: this.tok.map(a => a.map(t => t.pos)), cur: this.cur }; }
   /** Fading dot left behind on the square a token just left. */
   trail(tk) {
@@ -1067,7 +1117,7 @@ class Ludo extends Game {
     const P = this.players[this.cur]; this.turn(this.cur, 'Roll the dice'); this.dice.setColor(this.colorOf(this.cur)); this.updateRoster();
     this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
     if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
-    const roll = await this.dice.roll(); this.check();
+    const roll = await this.dice.roll(this); this.check();
     this.sixes = roll === 6 ? this.sixes + 1 : 0;
     if (this.sixes === 3) { this.info.textContent = 'Three 6s in a row — turn lost!'; UI.toast('Three 6s! Turn forfeited'); await this.wait(1200); return this.nextPlayer(); }
     const moves = this.legal(this.cur, roll);
@@ -1153,7 +1203,7 @@ class SnakesLadders extends Game {
   static meta = { id: 'snakes', name: 'Snakes & Ladders', emoji: '🐍', tag: 'Climb ladders, dodge snakes', min: 2, max: 4, c1: '#22c55e', c2: '#0d9488', noLevel: true,
     rules: ['Roll the die and move that many squares, following the zig-zag numbers up to 100.', 'Land at the bottom of a ladder 🪜 to climb up. Land on a snake’s head 🐍 and you slide down.', 'You need the exact number to land on 100.', 'Roll a 6 to go again.', 'Every game has a brand-new random board.'] };
   start() {
-    const n = this.players.length; const bd = slGenerate(); this.snakes = bd.snakes; this.ladders = bd.ladders; this.pos = Array(n).fill(0); this.cur = 0; this.dice = new Dice(() => this.ui('d'));
+    const n = this.players.length; const bd = slGenerate(); this.snakes = bd.snakes; this.ladders = bd.ladders; this.pos = Array(n).fill(0); const cr = this.cfg.carry; cr.round = cr.round || 0; this.cur = this.resume ? 0 : cr.round++ % n; this.dice = new Dice(() => this.ui('d'));
     if (this.resume) { this.snakes = this.resume.snakes; this.ladders = this.resume.ladders; this.pos = this.resume.pos.slice(); this.cur = this.resume.cur; }
     this.snakePts = {}; for (const [a, b] of Object.entries(this.snakes)) this.snakePts[a] = slSnakePts(+a, b);
     const cells = [];
@@ -1195,6 +1245,7 @@ class SnakesLadders extends Game {
     return svg;
   }
   doInput() { if (!this.dice.onClick) return false; this.dice.fire(); return true; }
+  wake(s) { if (this.over || this.cur !== s) return true; if (this.dice.onClick) { this.dice.fire(); return true; } return false; }
   serialize() { return { pos: this.pos, cur: this.cur, snakes: this.snakes, ladders: this.ladders }; }
   sparkle(x, y) { const e = h('span', { class: 'spark', style: { left: x + '%', top: y / 110 * 100 + '%' } }, '✨'); this.wrap.append(e); setTimeout(() => e.remove(), 950); }
   bite() { this.wrap.classList.add('bite'); setTimeout(() => this.wrap.classList.remove('bite'), 520); }
@@ -1217,7 +1268,7 @@ class SnakesLadders extends Game {
       const i = this.cur, P = this.players[i]; this.turn(i, 'Roll the dice'); this.dice.setColor(this.colorOf(i)); this.updateRoster();
       this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
       if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
-      const r = await this.dice.roll(); this.check(); await this.takeTurn(i, r); if (this.over) return;
+      const r = await this.dice.roll(this); this.check(); await this.takeTurn(i, r); if (this.over) return;
       if (r === 6) UI.toast(`${P.name} rolled a 6 — go again! 🎉`); else this.cur = (i + 1) % this.players.length;
     }
   }
@@ -1265,7 +1316,8 @@ class CardGame extends Game {
     const c = this.cfg.carry; if (!c.scores) c.scores = this.players.map(() => 0); c.round = c.round || 0;
     this.scores = c.scores; this.target = 100; this.cur = c.round % this.players.length;
     this.humans = this.players.filter(p => !p.cpu).length; this.hv = Math.max(0, this.players.findIndex(p => !p.cpu));
-    if (this.net) { this.humans = 1; this.hv = this.net.seat; }                 // online: everyone sees only their own hand
+    if (this.net) { this.humans = 1; this.hv = this.net.seat; }
+    this.spectator = !!(this.net && this.net.seat < 0);                 // online: everyone sees only their own hand
     this.actionRes = null; this.covered = null; this.called = false; this.passes = 0; this.picking = false; this.fresh = null; this.landed = null;
     this.box = h('div', { class: 'cg' }); this.root.append(this.box);
     this.dir = 1; this.effect = null; this.lastHuman = null;
@@ -1288,7 +1340,7 @@ class CardGame extends Game {
   }
   /* ---- rendering ---- */
   render() {
-    const v = this.viewer(), n = this.players.length, hand = this.hands[v], cur = this.cur;
+    const v = this.viewer(), n = this.players.length, hand = this.hands[v] || [], cur = this.cur;
     const myTurn = this.covered == null && v === cur && !this.players[cur].cpu && !!this.actionRes;
     const noPlay = myTurn && !hand.some(c => this.playable(c));
     const top = this.top();
@@ -1329,6 +1381,7 @@ class CardGame extends Game {
     if (c.r === 8) { this.picking = true; suit = await this.pickSuit(); this.picking = false; if (suit == null) return; }
     this.ui('play', c.id, suit);
   }
+  wake(s) { if (this.over || this.cur !== s) return true; if (!this.actionRes) return false; const r = this.actionRes; this.actionRes = null; r({ t: 'bot' }); return true; }
   doInput(k, id, suit) {
     if (!this.actionRes) return false;
     if (k === 'draw') { const r = this.actionRes; this.actionRes = null; r({ t: 'draw' }); return true; }
@@ -1373,9 +1426,11 @@ class CardGame extends Game {
     if (this.humans > 1 && this.lastHuman !== i) await this.coverUntil(i);
     this.lastHuman = i;
     for (;;) {
-      this.check(); const can = this.hands[i].some(c => this.playable(c));
+      this.check(); if (this.players[i].cpu) return this.cpuTurn(i);                // a computer took over this seat
+      const can = this.hands[i].some(c => this.playable(c));
       this.turn(i, !this.isMine(i) ? 'waiting for them…' : can ? 'Play a matching card' : 'No match — tap the draw pile');
       const act = await this.nextAction();
+      if (act.t === 'bot') return this.cpuTurn(i);
       if (act.t === 'play') { this.passes = 0; return this.playCard(i, act.card, act.suit); }
       const got = await this.drawUntil(i);
       if (got === 0 || !this.hands[i].some(c => this.playable(c))) { this.passes++; UI.toast('No playable card — pass'); await this.wait(800); return; }
@@ -1423,8 +1478,102 @@ class CardGame extends Game {
     this.scores[i] += pts; this.render();
     const c = this.cfg.carry, name = this.players[i].name, sc = this.players.map((p, k) => `${p.name}: ${this.scores[k]}`).join(' · ');
     const match = this.scores[i] >= this.target; if (match) { c.scores = null; c.round = 0; } else c.round++;
-    if (match) this.finish(`${name} wins the match!`, sc, { emoji: '🏆', againLabel: 'New Match' });
-    else this.finish(`${name} wins the round! +${pts}`, `${blocked ? 'Deck ran out — lowest hand wins. ' : ''}${sc} · first to ${this.target}`, { emoji: '🃏', againLabel: 'Next Round' });
+    if (match) this.finish(`${name} wins the match!`, sc, { emoji: '🏆', againLabel: 'New Match', statWinner: i });
+    else this.finish(`${name} wins the round! +${pts}`, `${blocked ? 'Deck ran out — lowest hand wins. ' : ''}${sc} · first to ${this.target}`, { emoji: '🃏', againLabel: 'Next Round', statWinner: i });
+  }
+}
+
+/* =====================================================================
+   4g. DOTS & BOXES  (2–4 players; draw a line, close a box = point + go again)
+   Lines are numbered: horizontals first (row r, col c → r*C + c, r = 0..R), then verticals
+   (row r, col c → HN + r*(C+1) + c, c = 0..C). A box (r,c) has top, bottom, left, right lines.
+   ===================================================================== */
+function dbDims(R, C) { return { R, C, HN: (R + 1) * C, N: (R + 1) * C + R * (C + 1) }; }
+function dbBoxLines(d, r, c) { return [r * d.C + c, (r + 1) * d.C + c, d.HN + r * (d.C + 1) + c, d.HN + r * (d.C + 1) + c + 1]; }
+/** Boxes touching a line (1 or 2). */
+function dbLineBoxes(d, id) {
+  const out = [];
+  if (id < d.HN) { const r = Math.floor(id / d.C), c = id % d.C; if (r > 0) out.push([r - 1, c]); if (r < d.R) out.push([r, c]); }
+  else { const k = id - d.HN, r = Math.floor(k / (d.C + 1)), c = k % (d.C + 1); if (c > 0) out.push([r, c - 1]); if (c < d.C) out.push([r, c]); }
+  return out;
+}
+const dbSides = (d, L, r, c) => dbBoxLines(d, r, c).filter(x => L[x]).length;
+/** How many boxes the next player could grab in a row after line `id` is drawn (greedy chain length). */
+function dbChainGift(d, L, id) {
+  const l = L.slice(); l[id] = 1; let got = 0;
+  for (;;) {
+    let mv = -1;
+    for (let r = 0; r < d.R && mv < 0; r++) for (let c = 0; c < d.C; c++) if (dbSides(d, l, r, c) === 3) { mv = dbBoxLines(d, r, c).find(x => !l[x]); break; }
+    if (mv < 0) return got; l[mv] = 1; got += dbLineBoxes(d, mv).filter(([r, c]) => dbSides(d, l, r, c) === 4).length;
+  }
+}
+/** AI: easy = random-ish · medium = take boxes, avoid giving a 3rd side · hard = also give away the smallest chain when forced. */
+function dbPick(d, L, level, rnd) {
+  const free = []; for (let i = 0; i < d.N; i++) if (!L[i]) free.push(i);
+  const closes = free.filter(id => dbLineBoxes(d, id).some(([r, c]) => dbSides(d, L, r, c) === 3));
+  if (level === 'easy' && rnd(10) < 5) return free[rnd(free.length)];
+  if (closes.length) return closes[0];
+  const safe = free.filter(id => dbLineBoxes(d, id).every(([r, c]) => dbSides(d, L, r, c) < 2));
+  if (safe.length) return safe[rnd(safe.length)];
+  if (level !== 'hard') return free[rnd(free.length)];
+  let best = Infinity, pick = free[0]; for (const id of free) { const g = dbChainGift(d, L, id); if (g < best) { best = g; pick = id; } }
+  return pick;
+}
+class DotsBoxes extends Game {
+  static meta = { id: 'dots', name: 'Dots & Boxes', emoji: '✏️', tag: 'Close a box, score, go again', min: 2, max: 4, c1: '#f97316', c2: '#a855f7',
+    rules: ['Take turns drawing one line between two neighbouring dots.', 'Draw the 4th side of a box and it is yours — you score a point and draw again.',
+      'When every box is taken, the player with the most boxes wins.', 'Careful: drawing the 3rd side of a box hands it to the next player!'],
+    opts: [{ k: 'big', label: 'Bigger board (5×5 boxes)', def: false }] };
+  start() {
+    const c = this.cfg.carry, r = this.resume, n = this.opts.big ? 5 : 4; c.round = c.round || 0; this.busy = false;
+    this.d = dbDims(n, n);
+    if (r) { this.L = r.L.slice(); this.B = r.B.slice(); this.cur = r.cur; this.sc = r.sc.slice(); }
+    else { this.L = Array(this.d.N).fill(0); this.B = Array(n * n).fill(-1); this.sc = this.players.map(() => 0); this.cur = c.round % this.players.length; c.round++; }  // alternate who starts
+    const { R, C, HN } = this.d, cells = [];
+    this.lineEls = []; this.boxEls = [];
+    for (let gr = 0; gr <= 2 * R; gr++) for (let gc = 0; gc <= 2 * C; gc++) {
+      const er = gr % 2 === 0, ec = gc % 2 === 0;
+      if (er && ec) cells.push(h('i', { class: 'db-dot' }));
+      else if (er || ec) {
+        const id = er ? (gr / 2) * C + (gc - 1) / 2 : HN + ((gr - 1) / 2) * (C + 1) + gc / 2;
+        const b = h('button', { class: 'db-ln ' + (er ? 'hz' : 'vt'), 'aria-label': (er ? 'Horizontal' : 'Vertical') + ' line ' + (id + 1), onclick: () => this.ui('l', id) });
+        this.lineEls[id] = b; cells.push(b);
+      } else { const bx = h('div', { class: 'db-box' }); this.boxEls[((gr - 1) / 2) * C + (gc - 1) / 2] = bx; cells.push(bx); }
+    }
+    this.grid = h('div', { class: 'db', style: { '--n': n } }, cells);
+    this.scoreEl = h('div', { class: 'chips', style: { justifyContent: 'center' } });
+    this.root.append(this.scoreEl, this.grid);
+    this.L.forEach((v, i) => v && this.paintLine(i, v - 1)); this.B.forEach((o, i) => o >= 0 && this.paintBox(i, o));
+    this.run(() => this.next());
+  }
+  serialize() { return { L: this.L, B: this.B, cur: this.cur, sc: this.sc }; }
+  doInput(k, id) { if (this.busy || this.over) return false; this.click(id); return true; }
+  wake(s) { if (this.over || this.cur !== s) return true; if (this.busy) return false; this.run(() => this.next()); return true; }
+  paintLine(id, p) { const b = this.lineEls[id]; b.classList.add('on'); b.disabled = true; b.style.setProperty('--pc', this.colorOf(p)); }
+  paintBox(i, p) { const b = this.boxEls[i]; b.classList.add('own'); b.style.setProperty('--pc', this.colorOf(p)); b.textContent = this.players[p].name.slice(0, 1).toUpperCase(); }
+  paintScores() {
+    this.scoreEl.replaceChildren(...this.players.map((p, i) => h('span', { class: 'chip' + (i === this.cur && !this.over ? ' on' : '') },
+      h('i', { class: 'dot', style: { background: this.colorOf(i) } }), `${p.name}${p.cpu ? ' 🤖' : ''}: ${this.sc[i]}`)));
+    this.grid.classList.toggle('mine', !this.over && !this.players[this.cur].cpu && this.isMine(this.cur));
+    this.grid.style.setProperty('--cc', this.colorOf(this.cur));
+  }
+  async next() {
+    if (this.over) return; this.turn(this.cur, 'Draw a line'); this.paintScores();
+    if (this.players[this.cur].cpu) { this.busy = true; await this.wait(520); const id = dbPick(this.d, this.L, this.level, rand); this.busy = false; this.place(id); }
+  }
+  click(id) { if (this.over || this.busy || this.L[id] || this.players[this.cur].cpu) return; this.place(id); }
+  place(id) {
+    const p = this.cur; this.L[id] = p + 1; this.paintLine(id, p); let got = 0;
+    for (const [r, c] of dbLineBoxes(this.d, id)) if (dbSides(this.d, this.L, r, c) === 4) { const bi = r * this.d.C + c; this.B[bi] = p; this.paintBox(bi, p); got++; }
+    this.sc[p] += got; Sound.play(got ? 'home' : 'move'); this.save();
+    if (this.B.every(o => o >= 0)) {
+      const top = Math.max(...this.sc), win = this.sc.map((v, i) => v === top ? i : -1).filter(i => i >= 0), sub = this.players.map((pl, i) => `${pl.name} ${this.sc[i]}`).join(' · ');
+      if (win.length > 1) this.finish("It's a draw", sub, { emoji: '🤝' });
+      else { const w = this.players[win[0]]; this.finish(`${w.name} wins!`, sub, { emoji: w.cpu ? '🤖' : '🎉', winner: win[0] }); }
+      return this.paintScores();
+    }
+    if (got) { if (!FF && !this.players[p].cpu) UI.toast(`+${got} — go again!`); } else this.cur = (p + 1) % this.players.length;
+    this.run(() => this.next());
   }
 }
 
@@ -1437,6 +1586,7 @@ class Net {
   constructor(hub) {
     this.hub = hub; this.ws = null; this.seat = 0; this.code = ''; this.token = ''; this.url = ''; this.players = []; this.gen = 0; this.consumed = 0;
     this.pending = false; this.queue = []; this.started = false; this.dead = false; this.replaying = false; this.buffer = []; this.onRejoin = null; this.fatal = false;
+    this.watching = false; this.hashes = {}; this.hostHashes = {}; this.gone = new Set();
   }
   connect(url) {
     this.url = url;
@@ -1464,7 +1614,7 @@ class Net {
    5. HUB — menu, setup sheet, launching games
    Register new games here.
    ===================================================================== */
-const GAMES = [Ludo, SnakesLadders, TicTacToe, ConnectFour, Checkers, CardGame];
+const GAMES = [Ludo, SnakesLadders, TicTacToe, ConnectFour, Checkers, CardGame, DotsBoxes];
 
 /** Quick reactions: emoji + a short synthesized sound. Sent by index so the server/clients never relay arbitrary text. */
 const REACT = [
@@ -1496,8 +1646,11 @@ class Hub {
       ['🎲', '♟️', '🃏', '🐍', '🪜', '⭐', '🔴', '🟡', '♠️', '♥️'][i % 10])));
     this.initChat();
     root.append(bgfx, this.menuEl, this.gameEl, this.muteBtn, this.musicBtn, this.netbar, this.reactEl, this.chatPanel, this.chatBtn);
-    document.addEventListener('pointerdown', () => { Sound.init(); if (Store.get('music', false)) Sound.setMusic(true); this.paintMute(); }, { once: true });
+    document.addEventListener('pointerdown', () => {
+      try { const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='); const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ }   // unlocks voice playback on iPhone
+      Sound.init(); if (Store.get('music', false)) Sound.setMusic(true); this.paintMute(); }, { once: true });
     this.buildMenu();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && this.wantAwake) this.keepAwake(true); });
     document.addEventListener('visibilitychange', () => { const n = this.net; if (document.visibilityState === 'visible' && n && n.started && !n.dead && !this.reconnecting) n.ping(); });
     window.addEventListener('online', () => { const n = this.net; if (n && n.started && !this.reconnecting) this.lost(n); });
     window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); this.installEv = e; if (!this.game) this.buildMenu(); });
@@ -1506,13 +1659,47 @@ class Hub {
     if (sess) { this.sess = sess; setTimeout(() => this.reconnect(), 0); }                      // page was reloaded mid-game: rejoin automatically
     else if (room.length === 4) setTimeout(() => this.openOnline(room), 300);                   // opened from an invite link
   }
+  /** Keep the screen on during online games (a sleeping phone drops its connection). */
+  async keepAwake(on) {
+    this.wantAwake = on;
+    try {
+      if (!on) { if (this.wl) { const w = this.wl; this.wl = null; await w.release(); } return; }
+      if (!this.wl && navigator.wakeLock && document.visibilityState === 'visible') { this.wl = await navigator.wakeLock.request('screen'); this.wl.addEventListener('release', () => { this.wl = null; }); }
+    } catch (e) { /* not supported / not allowed */ }
+  }
+  /* ---- stats: per game, for "you" (vs computer: player 1; online: your seat). Pass & Play only counts games played. ---- */
+  recordResult(g, o) {
+    if (FF || g.statsDone) return ''; g.statsDone = true;
+    const id = g.constructor.meta.id, all = Store.get('stats', {}), st = all[id] || (all[id] = { played: 0, won: 0, lost: 0, drawn: 0, streak: 0, best: 0 });
+    const cfg = g.cfg, me = cfg.net ? (cfg.net.watching ? null : cfg.net.seat) : cfg.mode === 'cpu' ? g.players.findIndex(p => !p.cpu) : null;
+    if (cfg.net && cfg.net.watching) return '';
+    st.played++; let line = '';
+    const w = o.winner != null ? o.winner : o.statWinner;
+    if (me != null && me >= 0) {
+      if (w == null) { st.drawn++; st.streak = 0; }
+      else if (w === me) { st.won++; st.streak++; st.best = Math.max(st.best, st.streak); if (st.streak >= 2) line = `🔥 ${st.streak} wins in a row`; }
+      else { st.lost++; st.streak = 0; }
+    }
+    Store.set('stats', all); return line;
+  }
+  showStats() {
+    const all = Store.get('stats', {}), rows = GAMES.map(G => [G.meta, all[G.meta.id]]).filter(([, s]) => s && s.played);
+    const md = UI.modal(h('div', {}, h('h3', {}, '📊 Your stats'),
+      rows.length ? h('table', { class: 'stats' }, h('tr', {}, ...['Game', 'Played', 'Won', 'Lost', 'Draw', 'Best streak'].map(t => h('th', {}, t))),
+        rows.map(([m, s]) => h('tr', {}, h('td', {}, m.emoji + ' ' + m.name), h('td', {}, s.played), h('td', {}, s.won), h('td', {}, s.lost), h('td', {}, s.drawn), h('td', {}, (s.best || 0) + (s.streak >= 2 ? ` (now ${s.streak})` : '')))))
+        : h('p', { class: 'hint' }, 'Play a game to start your stats.'),
+      h('p', { class: 'hint' }, 'Wins/losses count games vs the computer and online. Pass & Play counts games played.'),
+      h('div', { class: 'row' }, rows.length ? h('button', { class: 'btn ghost small', onclick: () => { Store.set('stats', {}); md.close(); UI.toast('Stats cleared'); } }, 'Reset') : null,
+        h('button', { class: 'btn', onclick: () => md.close() }, 'Close'))));
+  }
   paintMute() { this.muteBtn.textContent = Sound.muted ? '🔇' : '🔊'; this.musicBtn.style.opacity = Store.get('music', false) ? 1 : .45; }
   setTurn(name, color, extra) {
     this.dot.style.background = color || '#888'; this.dot.style.color = color || '#888';
     this.turnTxt.textContent = name ? (extra === '' ? name : (name === 'You' ? 'Your turn' : name + "'s turn")) : ''; this.turnSub.textContent = name && extra ? '· ' + extra : '';
   }
   setScore(t) { this.scoreEl.textContent = t || ''; this.scoreEl.classList.toggle('hidden', !t); }
-  setTools(list) { this.toolsEl.replaceChildren(...(list || []).map(t => h('button', { class: 'btn ghost small', onclick: t.fn }, t.label)), h('button', { class: 'btn ghost small', onclick: () => this.showRules(this.Cls) }, '❓ Rules')); }
+  setTools(list) { this.toolsEl.replaceChildren(...(list || []).map(t => h('button', { class: 'btn ghost small', onclick: t.fn }, t.label)), h('button', { class: 'btn ghost small', onclick: () => this.showRules(this.Cls) }, '❓ Rules'),
+    ...(this.net && this.net.watching ? [h('span', { class: 'chip on' }, '👀 Spectating')] : [])); }
   /* ---- online ---- */
   defaultServer() { return typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host : 'ws://localhost:8787'; }
   served() { return typeof location !== 'undefined' && /^https?:$/.test(location.protocol); }
@@ -1520,7 +1707,7 @@ class Hub {
   /** The saved online session (room code + secret seat token) survives a page reload via sessionStorage. */
   sessKey() { return 'gn.sess.' + SID; }
   saveSess(v) { this.sess = v; try { v ? sessionStorage.setItem(this.sessKey(), JSON.stringify(v)) : sessionStorage.removeItem(this.sessKey()); } catch (e) { /* private mode */ } }
-  loadSess() { try { const v = JSON.parse(sessionStorage.getItem(this.sessKey())); return v && v.code && v.token && v.url ? v : null; } catch (e) { return null; } }
+  loadSess() { try { const v = JSON.parse(sessionStorage.getItem(this.sessKey())); return v && v.code && v.url && (v.token || v.watch) ? v : null; } catch (e) { return null; } }
   showBar(text, onCancel) {
     this.netbar.replaceChildren(text, ...(onCancel ? [h('button', { class: 'btn ghost small', onclick: onCancel }, 'Cancel')] : [])); this.netbar.classList.remove('hidden');
   }
@@ -1539,8 +1726,9 @@ class Hub {
     this.chatNote = h('small'); this.clog = h('div', { class: 'clog', role: 'log', 'aria-live': 'polite' }, h('small', null, 'No messages yet'));
     this.cinput = h('input', { type: 'text', maxlength: 200, placeholder: 'Type a message…', enterkeyhint: 'send', 'aria-label': 'Chat message', autocomplete: 'off' });
     this.cinput.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') this.sendText(); });
+    this.people = h('div', { class: 'people' }); this.mutedSeats = new Set();
     this.chatPanel = h('div', { id: 'chatpanel', class: 'hidden' },
-      this.clog,
+      this.people, this.clog,
       h('div', { class: 'row' }, this.cinput, h('button', { class: 'btn small', onclick: () => this.sendText() }, 'Send')),
       h('div', { class: 'emo' }, REACT.map((r, i) => h('button', { 'aria-label': r.n, title: r.n, onclick: () => this.sendReact(i) }, r.e))),
       h('div', { class: 'row' }, t, this.voiceBtn), this.chatNote);
@@ -1549,24 +1737,33 @@ class Hub {
   }
   paintVoice() { this.voiceBtn.textContent = this.voiceOn ? '🔊 Voices on' : '🔇 Voices off'; this.voiceBtn.setAttribute('aria-pressed', String(this.voiceOn)); }
   canVoice() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined' && window.isSecureContext !== false); }
+  /** Player list in the chat panel: 🔇 mute someone's chat/voice for yourself; the host can also remove a player. */
+  paintPeople() {
+    const n = this.net; if (!this.people) return; if (!n) return this.people.replaceChildren();
+    const sure = this.kickSure;
+    this.people.replaceChildren(...n.players.map((name, i) => i === n.seat ? null : h('span', { class: 'pp' + (n.gone.has(i) ? ' gone' : '') },
+      h('i', { class: 'dot', style: { background: PALETTE[i] } }), name + (n.gone.has(i) ? ' 🤖' : ''),
+      n.gone.has(i) ? null : h('button', { 'aria-label': (this.mutedSeats.has(i) ? 'Unmute ' : 'Mute ') + name, title: 'Mute for me', onclick: () => { this.mutedSeats.has(i) ? this.mutedSeats.delete(i) : this.mutedSeats.add(i); this.paintPeople(); } }, this.mutedSeats.has(i) ? '🔇' : '🔈'),
+      n.seat === 0 && !n.gone.has(i) && n.started ? h('button', { class: 'kick', 'aria-label': 'Remove ' + name, onclick: () => { if (sure === i) { n.send({ t: 'kick', seat: i }); this.kickSure = null; } else { this.kickSure = i; setTimeout(() => { if (this.kickSure === i) { this.kickSure = null; this.paintPeople(); } }, 3000); } this.paintPeople(); } }, sure === i ? 'Remove?' : '✕') : null)).filter(Boolean));
+  }
   paintChat() {
-    const on = !!(this.net && this.net.started); this.chatBtn.classList.toggle('hidden', !on);
+    const on = !!(this.net && this.net.code && !this.net.watching); this.chatBtn.classList.toggle('hidden', !on);
     if (!on) { this.chatPanel.classList.add('hidden'); this.releaseMic(); this.clog.replaceChildren(h('small', null, 'No messages yet')); this.unread = 0; delete this.chatBtn.dataset.n; this.vq = []; }
   }
   toggleChat() {
-    const open = this.chatPanel.classList.toggle('hidden') === false; Sound.init();
+    const open = this.chatPanel.classList.toggle('hidden') === false; Sound.init(); if (open) this.paintPeople();
     this.unread = 0; delete this.chatBtn.dataset.n; if (open) setTimeout(() => this.clog.scrollTo(0, this.clog.scrollHeight), 0);
     this.chatNote.textContent = this.canVoice() ? 'Tap 🎤 once to keep talking (others hear you in 3 s clips), or hold it to send one clip' : 'Voice needs HTTPS (or localhost) and a microphone — reactions still work';
     this.talkBtn.disabled = !this.canVoice(); if (!open) this.releaseMic();
   }
   releaseMic() { this.talking = false; this.latched = false; clearTimeout(this.maxT); clearTimeout(this.segT); try { if (this.rec && this.rec.state === 'recording') { this.rec.onstop = null; this.rec.stop(); } } catch (e) { /* ignore */ } this.rec = null; this.paintTalk(); if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; } }
   sendReact(i) {
-    const n = this.net, now = Date.now(); if (!n || !n.started || now - this.lastReact < 500) return; this.lastReact = now;
+    const n = this.net, now = Date.now(); if (!n || !n.code || now - this.lastReact < 500) return; this.lastReact = now;
     n.send({ t: 'chat', k: 'e', i }); this.showReact(n.players[n.seat] || 'You', i);
   }
   showReact(name, i) {
     const r = REACT[i]; if (!r || FF) return;
-    const el = h('div', { class: 'react', style: { left: (8 + crand(1) * 70) + '%' } }, h('b', null, r.e), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500);
+    const el = h('div', { class: 'react', style: { left: (8 + Math.random() * 70) + '%' } }, h('b', null, r.e), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500);
     if (!Sound.muted) { Sound.init(); r.s.forEach(x => Sound.tone(...x)); }
   }
   talkDown() { if (this.talking) { this.latched = false; this.stopTalk(); this.skipUp = true; return; } this.downAt = Date.now(); this.startTalk(); }
@@ -1606,7 +1803,7 @@ class Hub {
     try { if (this.rec && this.rec.state === 'recording') this.rec.stop(); } catch (e) { /* ignore */ } this.paintTalk();
   }
   sendText() {
-    const n = this.net, v = this.cinput.value.trim().slice(0, 200); if (!n || !n.started || !v) return; const now = Date.now(); if (now - (this.lastText || 0) < 400) return; this.lastText = now;
+    const n = this.net, v = this.cinput.value.trim().slice(0, 200); if (!n || !n.code || !v) return; const now = Date.now(); if (now - (this.lastText || 0) < 400) return; this.lastText = now;
     n.send({ t: 'chat', k: 't', s: v }); this.cinput.value = ''; this.addLine(n.players[n.seat] || 'You', v, true);
   }
   addLine(name, text, mine) {
@@ -1623,7 +1820,7 @@ class Hub {
   }
   showTalk(name) { const el = h('div', { class: 'react', style: { left: '40%' } }, h('b', null, '🎤'), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500); }
   onChat(net, m) {
-    if (net.replaying || FF || m.from === net.seat) return; const name = net.players[m.from] || 'Player';
+    if (net.replaying || FF || m.from === net.seat || this.mutedSeats.has(m.from)) return; const name = net.players[m.from] || 'Player';
     if (m.k === 'e') this.showReact(name, m.i | 0);
     else if (m.k === 't' && typeof m.s === 'string') this.addLine(name, m.s.slice(0, 200), false);
     else if (m.k === 'v' && this.voiceOn && typeof m.a === 'string' && /^audio\/[a-z0-9]+(;codecs=[a-z0-9]+)?$/.test(m.mt || '')) {
@@ -1653,7 +1850,7 @@ class Hub {
         const name = (st.name || '').trim() || 'Player'; this.leaveOnline(); const net = this.net = new Net(this); st.msg = 'Connecting…'; this.renderOnline();
         try { await net.connect(st.url); } catch (e) { st.msg = e.message + ' — is server.js running?'; if (this.net === net) this.net = null; this.renderOnline(); return; }
         st.msg = ''; Store.set('server', st.url); const nm = Store.get('names', ['', '', '', '']).slice(); nm[0] = name; Store.set('names', nm);
-        net.send(mode === 'create' ? { t: 'create', name } : { t: 'join', name, code: st.code });
+        net.send(mode === 'create' ? { t: 'create', name } : mode === 'watch' ? { t: 'watch', code: st.code } : { t: 'join', name, code: st.code });
       };
       b.replaceChildren(h('h3', {}, '🌐 Play Online'),
         h('p', { class: 'hint', style: { textAlign: 'left' } }, 'Play with friends on their own phones. Needs the Game Night server running (node server.js).'),
@@ -1663,7 +1860,8 @@ class Hub {
         h('label', {}, 'Or join a friend’s room'),
         h('div', { class: 'row', style: { marginTop: 0 } },
           h('input', { type: 'text', maxlength: 4, placeholder: 'CODE', 'aria-label': 'Room code', value: st.code, style: { width: '120px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '4px', fontWeight: 800 }, oninput: e => { st.code = e.target.value.toUpperCase(); } }),
-          h('button', { class: 'btn ghost', onclick: () => connect('join') }, 'Join')),
+          h('button', { class: 'btn ghost', onclick: () => connect('join') }, 'Join'),
+          h('button', { class: 'btn ghost', title: 'Watch a game that already started', onclick: () => connect('watch') }, '👀 Watch')),
         ...(st.msg ? [h('p', { class: 'hint', style: { color: '#fca5a5' } }, st.msg)] : []));
       return;
     }
@@ -1677,7 +1875,9 @@ class Hub {
         h('div', { class: 'row', style: { marginTop: 6 } }, h('button', { class: 'btn small', onclick: () => this.shareInvite(n.code) }, '📤 Share invite link')))
         : h('p', { class: 'hint', style: { textAlign: 'left' } }, 'Friends join with this code.')),
       h('label', {}, `Players (${np}/4)`),
-      h('div', { class: 'chips' }, n.players.map((p, i) => h('span', { class: 'chip on' }, h('i', { class: 'dot', style: { background: PALETTE[i] } }), p + (i === n.seat ? ' (you)' : '') + (i === 0 ? ' 👑' : '')))),
+      h('div', { class: 'chips' }, n.players.map((p, i) => h('span', { class: 'chip on' }, h('i', { class: 'dot', style: { background: PALETTE[i] } }), p + (i === n.seat ? ' (you)' : '') + (i === 0 ? ' 👑' : ''),
+        isHost && i !== 0 ? h('button', { class: 'kick', 'aria-label': 'Remove ' + p, title: 'Remove from room', onclick: () => n.send({ t: 'kick', seat: i }) }, '✕') : null))),
+      h('p', { class: 'hint' }, '💬 Chat is open — tap the bubble in the corner'),
       isHost ? h('div', {}, h('label', {}, 'Pick a game'),
         h('div', { class: 'chips' }, GAMES.map(g => h('button', { class: 'chip' + (g === G ? ' on' : ''), onclick: () => { st.gid = g.meta.id; st.opts = null; this.renderOnline(); } }, g.meta.emoji + ' ' + g.meta.name))),
         (m.opts || []).map(o => h('button', { class: 'tog' + (st.opts[o.k] ? ' on' : ''), onclick: () => { st.opts[o.k] = !st.opts[o.k]; this.renderOnline(); } }, (st.opts[o.k] ? '✅ ' : '⬜ ') + o.label)),
@@ -1692,8 +1892,8 @@ class Hub {
   }
   leaveOnline() {
     this.reconnecting = false; this.away.clear(); this.hideBar(); this.saveSess(null);
-    if (this.net) { const n = this.net; this.net = null; n.close(true); }
-    this.paintChat();
+    if (this.net) { const n = this.net; this.net = null; n.close(!n.watching); }
+    this.paintChat(); this.keepAwake(false);
   }
   /** Timer that applies queued online inputs in order; runs only while an online session exists. */
   startPump() {
@@ -1703,16 +1903,26 @@ class Hub {
   onNet(net, m) {
     if (net !== this.net) return; this.startPump();
     if (m.t === 'room') { net.seat = m.seat; net.code = m.code; net.token = m.token; this.saveSess({ url: net.url, code: m.code, token: m.token }); }
-    else if (m.t === 'roster') { net.seat = m.you; net.players = m.players; this.renderOnline(); }
+    else if (m.t === 'roster') { net.seat = m.you; net.players = m.players; this.renderOnline(); this.paintChat(); this.paintPeople(); }
     else if (m.t === 'pong') clearTimeout(net.pongT);
     else if (m.t === 'error') {
-      if (m.rejoin) { net.fatal = true; const f = net.onRejoin; net.onRejoin = null; if (f) f(false); return; }
+      if (m.rejoin || (m.watch && net.onRejoin)) { net.fatal = true; const f = net.onRejoin; net.onRejoin = null; if (f) f(false); return; }
       this.ol.msg = m.msg; this.leaveOnline(); this.renderOnline();
     }
     else if (m.t === 'rejoined') { net.seat = m.seat; net.code = m.code; net.token = m.token; const f = net.onRejoin; net.onRejoin = null; this.replay(net, m.log || []); if (f) f(true); }
+    else if (m.t === 'watching') {                                                // spectator: catch up from the log, then follow live
+      net.watching = true; net.seat = -1; net.code = m.code; net.players = m.players || []; this.saveSess({ url: net.url, code: m.code, watch: true });
+      const f = net.onRejoin; net.onRejoin = null; this.replay(net, m.log || []); if (f) f(true);
+    }
+    else if (m.t === 'kicked') { this.saveSess(null); this.reconnecting = false; if (this.net === net) { this.net = null; net.close(false); } this.paintChat(); this.onlineStopped('The host removed you from the game'); }
     else if (m.t === 'away') { if (m.seat !== net.seat) { this.away.set(m.seat, m.name); this.updateAwayBar(); } }
     else if (m.t === 'back') { this.away.delete(m.seat); this.updateAwayBar(); }
-    else if (m.t === 'left') { this.away.delete(m.seat); if (this.game && this.cfg.net === net) this.onlineStopped(`${m.name} left the game`); }
+    else if (m.t === 'left') {
+      this.away.delete(m.seat); this.updateAwayBar();
+      if (m.seat < 0) { if (this.game && this.cfg.net === net) this.onlineStopped('The game has ended'); return; }
+      net.gone.add(m.seat); this.paintPeople();
+      if (this.game && this.cfg.net === net) UI.toast(`${m.name} ${m.why === 'removed' ? 'was removed' : 'left'} — 🤖 a computer takes over`, 2600);
+    }
     else if (m.t === 'msg') { if (net.replaying) net.buffer.push(m); else this.applyMsg(net, m); }
     else if (m.t === 'chat') this.onChat(net, m);
   }
@@ -1721,6 +1931,8 @@ class Hub {
     if (d.k === 'start') { if (net.gen === 0) this.onlineStart(net, d); }
     else if (d.k === 'again') { if (this.game && d.gen === net.gen + 1) this.onlineLaunch(net, d.seed); }
     else if (d.k === 'in') net.queue.push({ n: d.n, a: d.a });
+    else if (d.k === 'bot' && m.from === -1) net.queue.push({ bot: d.seat | 0 });              // a computer takes this seat, at this point in the order
+    else if (d.k === 'h' && m.from === 0 && net.seat !== 0) { const key = d.g + ':' + d.n; net.hostHashes[key] = d.h; this.syncCheck(net, key); }
   }
   onNetClose(net) {
     if (net.onRejoin) { const f = net.onRejoin; net.onRejoin = null; f(false); return; }          // a reconnect attempt's socket died
@@ -1746,7 +1958,7 @@ class Hub {
       if (!this.reconnecting) { net.close(false); return; }
       if (this.net && this.net !== net) this.net.close(false);
       this.net = net;
-      const ok = await new Promise(res => { net.onRejoin = res; net.send({ t: 'rejoin', code: sess.code, token: sess.token }); });
+      const ok = await new Promise(res => { net.onRejoin = res; net.send(sess.watch ? { t: 'watch', code: sess.code } : { t: 'rejoin', code: sess.code, token: sess.token }); });
       if (ok) { this.reconnecting = false; return; }
       if (net.fatal) break;
       await wait(1500);
@@ -1774,7 +1986,8 @@ class Hub {
     }
   }
   onlineStart(net, d) {
-    net.started = true; this.olBody = null; this.away.clear(); this.paintChat();
+    net.started = true; this.olBody = null; this.away.clear(); if (!net.replaying) this.resyncs = 0;   // (a re-sync replays 'start': keep the count)
+    this.paintChat(); this.keepAwake(true);
     const names = Array.isArray(d.players) && d.players.length ? d.players.map(x => String(x).slice(0, 12)) : net.players, bots = Math.max(0, Math.min(3, d.bots | 0));
     this.onCfg = { id: d.id, opts: d.opts || {}, level: ['easy', 'medium', 'hard'].includes(d.level) ? d.level : 'hard',
       players: [...names.map(name => ({ name, cpu: false })), ...Array.from({ length: bots }, (_, i) => ({ name: CPU_NAMES[i], cpu: true }))] };
@@ -1782,7 +1995,8 @@ class Hub {
   }
   onlineLaunch(net, seed) {
     const c = this.onCfg, G = GAMES.find(g => g.meta.id === c.id);
-    net.gen++; net.consumed = 0; net.pending = false; net.queue = []; RNG.seed(seed);
+    for (const it of net.queue) if (it.bot != null && c.players[it.bot]) c.players[it.bot].cpu = true;   // takeovers that arrived after the game ended
+    net.gen++; net.consumed = 0; net.pending = false; net.queue = []; net.hashes = {}; net.hostHashes = {}; RNG.seed(seed);
     this.launch(G, { mode: 'online', level: c.level, opts: Object.assign({}, c.opts), players: c.players, carry: this.onCarry, net });
   }
   /** Apply queued remote inputs in order, waiting until the local game is ready for each. */
@@ -1790,10 +2004,32 @@ class Hub {
     const n = this.net, g = this.game; if (!n || !g || g.cfg.net !== n || g.dead) return;
     while (n.queue.length) {
       const it = n.queue[0];
+      if (it.bot != null) {                                                       // player left: their seat becomes a computer
+        const p = g.players[it.bot]; if (p && !p.cpu) { p.cpu = true; if (this.onCfg && this.onCfg.players[it.bot]) this.onCfg.players[it.bot].cpu = true; }
+        if (p && g.wake(it.bot) === false) break; n.queue.shift(); continue;
+      }
       if (it.n < n.consumed) { n.queue.shift(); continue; }                       // stale duplicate
-      if (it.n > n.consumed || g.doInput(...it.a) === false) break;               // not our turn to process yet / game not ready
+      if (it.n > n.consumed) break;                                               // not our turn to process yet
+      const hh = n.consumed % 5 === 0 ? this.stateHash(g) : null;                // state *before* this input: identical on every client
+      if (g.doInput(...it.a) === false) break;                                    // game not ready yet
+      if (hh) this.noteHash(n, n.gen + ':' + n.consumed, hh);
       n.queue.shift(); n.consumed++; n.pending = false;
     }
+  }
+  /* ---- desync detection: every 5 inputs the host publishes a hash of its game state; others compare and re-sync if different ---- */
+  stateHash(g) { try { const st = g.serialize(); return st ? hash32(JSON.stringify(st)) : null; } catch (e) { return null; } }
+  noteHash(n, key, hh) {
+    if (n.seat === 0) { const [gen, k] = key.split(':'); n.game({ k: 'h', g: +gen, n: +k, h: hh }); return; }
+    n.hashes[key] = hh; this.syncCheck(n, key);
+  }
+  syncCheck(n, key) {
+    const mine = n.hashes[key], host = n.hostHashes[key]; if (mine == null || host == null) return;
+    delete n.hashes[key]; delete n.hostHashes[key];
+    if (mine === host || n.replaying || FF) return;
+    console.warn('[GameNight] desync at', key, mine, host);
+    this.resyncs = (this.resyncs || 0) + 1;
+    if (this.resyncs > 3) { this.showBar('⚠️ This game keeps going out of sync — try leaving and rejoining'); return; }
+    UI.toast('🔄 Game got out of sync — re-syncing…', 2400); this.lost(n);
   }
   onlineStopped(msg) {
     if (this.game) this.game.over = true; this.reconnecting = false; this.hideBar();
@@ -1814,9 +2050,10 @@ class Hub {
   buildMenu() {
     const last = Store.get('last'), sv = Store.get('save', null), SG = sv && GAMES.find(g => g.meta.id === sv.id), theme = Store.get('theme', 'classic');
     this.menuEl.replaceChildren(
-      h('div', { class: 'hero' }, h('div', { class: 'logo' }, '🎲'), h('h1', {}, 'Game Night'), h('p', {}, 'Six classics · play the computer or pass the phone'),
+      h('div', { class: 'hero' }, h('div', { class: 'logo' }, '🎲'), h('h1', {}, 'Game Night'), h('p', {}, 'Seven classics · play the computer, pass the phone or play online'),
         h('div', { class: 'chips', style: { justifyContent: 'center', marginTop: '12px' } }, h('span', { class: 'chip' }, '🤖 vs Computer'), h('span', { class: 'chip' }, '👥 Pass & Play'), h('span', { class: 'chip' }, '🔊 Sound FX'))),
       h('div', { class: 'resume' }, h('button', { class: 'btn', onclick: () => this.openOnline() }, '🌐 Play Online'),
+        h('button', { class: 'btn ghost', onclick: () => this.showStats() }, '📊 Stats'),
         this.installEv ? h('button', { class: 'btn ghost', onclick: async () => { const e = this.installEv; this.installEv = null; e.prompt(); try { await e.userChoice; } catch (x) { /* ignore */ } this.buildMenu(); } }, '📲 Install app') : null,
         SG ? h('button', { class: 'btn ghost', onclick: () => this.resume() }, `▶ Resume ${SG.meta.emoji} ${SG.meta.name}`) : null,
         SG ? h('button', { class: 'btn ghost small', 'aria-label': 'Discard saved game', onclick: () => { this.clearSave(); this.buildMenu(); } }, '✕') : null),
@@ -1871,6 +2108,7 @@ class Hub {
   restart() {                                                                     // "Play Again": same settings; carry (scores, wins) kept
     const n = this.cfg.net;
     if (n && n.dead) return UI.toast('🔌 Reconnecting…');
+    if (n && n.watching) return UI.toast('👀 Only players can start the next game');
     if (n) { n.game({ k: 'again', gen: n.gen + 1, seed: (Math.random() * 4294967296) >>> 0 }); return; }   // online: everyone restarts together, in server order
     this.launch(this.Cls, Object.assign({}, this.cfg, { resume: null }));
   }
@@ -1888,14 +2126,21 @@ function boot() {
   if (/^https?:$/.test(location.protocol)) {                      // installable app + offline single-player (only when served by server.js)
     document.head.append(h('link', { rel: 'manifest', href: 'manifest.webmanifest' }), h('link', { rel: 'apple-touch-icon', href: 'icon-192.png' }),
       h('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }), h('meta', { name: 'mobile-web-app-capable', content: 'yes' }));
-    if ('serviceWorker' in navigator && SPEED === 1) navigator.serviceWorker.register('sw.js').catch(() => { /* optional */ });
+    if ('serviceWorker' in navigator && SPEED === 1) {
+      const hadCtl = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.register('sw.js').then(reg => { setInterval(() => reg.update().catch(() => {}), 30 * 60000); }).catch(() => { /* optional */ });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {               // a new version was installed while the app was open
+        if (!hadCtl || document.getElementById('updbtn')) return;
+        document.body.append(h('button', { id: 'updbtn', class: 'btn small', onclick: () => location.reload() }, '🔄 New version — tap to update'));
+      });
+    }
   }
 }
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 }
 if (typeof module !== 'undefined' && module.exports) {   // lets the logic be unit-tested in Node
-  module.exports = { GAMES, Hub, Game, slGenerate, tttMinimax, tttWinner, c4Search, c4Find, c4Row, ckGen, ckApply, ckClone, ckSearch, LD_TRACK, LD_HC, LD_ST, LD_SAFE, slXY, SL_SNAKES, SL_LADDERS };
+  module.exports = { GAMES, Hub, Game, dbDims, dbPick, dbSides, dbLineBoxes, dbChainGift, slGenerate, tttMinimax, tttWinner, c4Search, c4Find, c4Row, ckGen, ckApply, ckClone, ckSearch, LD_TRACK, LD_HC, LD_ST, LD_SAFE, slXY, SL_SNAKES, SL_LADDERS };
 }
 </script>
 </body>

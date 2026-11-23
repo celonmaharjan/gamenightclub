@@ -47,7 +47,7 @@ const startGame = async card => { await tap('.gcard', card); await waitFor("!!do
   await setView(360, 640); await goto(`http://localhost:${PORT}/`);
 
   // ---- menu + PWA
-  ok(await ev("document.querySelectorAll('.gcard').length") === 6, 'menu shows all 6 game cards'); await audit('menu'); await shot('menu');
+  ok(await ev("document.querySelectorAll('.gcard').length") === 7, 'menu shows all 7 game cards'); await audit('menu'); await shot('menu');
   ok(await ev("!!document.querySelector('link[rel=manifest]')"), 'manifest linked');
   ok(await waitFor("navigator.serviceWorker.ready.then(r=>!!r.active)", 8000), 'service worker installed and active');
   ok(await waitFor("caches.keys().then(k=>k.includes('gn-v1'))", 5000), 'app shell cached');
@@ -66,6 +66,8 @@ const startGame = async card => { await tap('.gcard', card); await waitFor("!!do
   await startGame('Crazy Eights'); await audit('crazy eights'); await shot('cards');
   const before = await ev("document.querySelector('.turnbar').textContent"); await tap(await ev("document.querySelector('.hand .pc.ok')?'.hand .pc.ok':'.pile'"));
   ok(await waitFor(`document.querySelector('.turnbar').textContent!==${J(before)}||document.querySelector('.cg-me .who').textContent.length>0`, 4000), 'crazy eights: tapping a card / the draw pile works'); await toMenu();
+  await toMenu(); await startGame('Dots'); await audit('dots & boxes'); await shot('dots'); await sleep(800);
+  { const before = await ev("document.querySelectorAll('.db-ln.on').length"); await tap('.db-ln:not(.on)'); ok(await waitFor(`document.querySelectorAll('.db-ln.on').length > ${before}`, 3000), 'dots & boxes: tapping a line draws it'); await toMenu(); }
 
   // ---- online sheet + lobby by touch (typing included)
   await tap('button', 'Play Online'); await audit('online sheet'); await shot('online');
@@ -76,7 +78,7 @@ const startGame = async card => { await tap('.gcard', card); await waitFor("!!do
   // ---- other screen sizes: no overflow (tiny phone, big phone, landscape)
   for (const [w, h, name] of [[320, 568, 'small phone 320x568'], [412, 915, 'big phone 412x915'], [640, 360, 'landscape 640x360']]) {
     await setView(w, h); await goto(`http://localhost:${PORT}/`); await audit(name + ' menu');
-    for (const g of ['ludo', 'snakes', 'ttt', 'c4', 'checkers', 'cards']) {
+    for (const g of ['ludo', 'snakes', 'ttt', 'c4', 'checkers', 'cards', 'dots']) {
       await ev(`(()=>{const G=GAMES.find(x=>x.meta.id===${J(g)});hub.launch(G,{mode:'cpu',level:'easy',opts:{},players:[{name:'Sam',cpu:false},{name:'Robo',cpu:true},{name:'Chip',cpu:true}].slice(0,G.meta.max>2?3:2),carry:{}});return true})()`); await sleep(500);
       await audit(`${name} ${g}`); if (w === 640) await shot('land-' + g);
     }
@@ -86,7 +88,7 @@ const startGame = async card => { await tap('.gcard', card); await waitFor("!!do
   await setView(360, 640); await goto(`http://localhost:${PORT}/`); await waitFor("navigator.serviceWorker.ready.then(r=>!!r.active)", 8000); await sleep(500);
   await cdp.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
   await cdp.send('Page.reload'); await sleep(2000);
-  ok(await waitFor("document.querySelectorAll('.gcard').length===6", 6000), 'offline: app loads from the cache with no network');
+  ok(await waitFor("document.querySelectorAll('.gcard').length===7", 6000), 'offline: app loads from the cache with no network');
   await startGame('Tic-Tac-Toe'); await tap('.ttt-cell:not(:disabled)'); ok(await waitFor("document.querySelectorAll('.ttt-cell.O').length===1", 4000), 'offline: single-player game works');
   await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 

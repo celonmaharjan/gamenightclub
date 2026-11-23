@@ -6,22 +6,22 @@ for online play. Keep it that way: **no libraries, no external images, no build 
 ## Layout
 
 - `game-night.html` — the app. Sections (search for the banner comments): 1 Helpers → 2 UI → 3 Dice/Game base →
-  4a–4f games → 5a Net → 5 Hub → 6 Boot. One class per game; new games are added to the `GAMES` array.
+  4a–4g games → 5a Net → 5 Hub → 6 Boot. One class per game; new games are added to the `GAMES` array.
 - `game-night-server/server.js` — static server + WebSocket relay (hand-written RFC 6455, no `ws` package). No game logic.
 - `game-night-tests/` — see Commands.
 
 ## Commands
 
 ```bash
-node game-night-tests/logic.test.js      # pure logic, instant
+node game-night-tests/logic.test.js      # pure logic + AI strength (Hard must beat Easy), instant
 node game-night-tests/smoke.js           # bot plays every game via the DOM in headless Chromium (~15 s)
 node game-night-server/server.test.js    # relay server
-node game-night-tests/online.test.js     # real server + 2–4 game iframes playing each other, incl. bots/drops/reloads (~6 min; prints only at the end)
+node game-night-tests/online.test.js     # real server + 1–4 game iframes playing each other: bots, drops, reloads, leave, kick, spectator, desync (~8 min; prints only at the end)
 node game-night-tests/mobile.test.js     # CDP phone emulation: real touch, 360px overflow + tap-size audit, PWA/offline (~30 s)
 node game-night-server/server.js         # run it (PORT=9000 to change); serves the game at /
 ```
 
-Run all four after any change to game logic, the Hub, or online code. Syntax-check quickly by extracting the script and
+CI (`.github/workflows/test.yml`) runs all five on every push. Run them after any change to game logic, the Hub, or online code. Syntax-check quickly by extracting the script and
 running `node --check`. Don't assume a change works because it parses — the bot tests have caught real bugs that looked fine.
 
 ## Conventions
@@ -33,7 +33,8 @@ running `node --check`. Don't assume a change works because it parses — the bo
 - **DOM building uses `h(tag, props, ...kids)`.** Pitfall (hit three times): `el.replaceChildren(...)` does NOT flatten arrays or
   skip `null` — spread arrays (`...list`) and never pass `cond ? node : null` directly (it renders the text "null").
   Inside `h()` children are flattened and null-safe.
-- **Randomness:** `rand()`/`shuffle()` are *game-logic* randomness (seeded identically on every client online).
+- **Randomness:** `rand()`/`shuffle()` are *game-logic* randomness (seeded identically on every client online). That includes computer
+  decisions such as "Easy plays randomly 40% of the time" — a `Math.random()` there once desynced online games with bots.
   Use `crand()` / `Math.random()` for anything cosmetic (animation frames, confetti, background). Mixing them desyncs online games.
 - Comment code sections clearly; keep the single-file structure. Mobile-first: must work from 360 px wide.
 - localStorage access must stay inside try/catch (`Store`).
@@ -57,7 +58,15 @@ everyone in one order; every client applies them (`Hub.pumpInputs` → `game.doI
    `FF` (fast-forward) mode: `sleep()` is instant, sound/toasts are off, `Game.finish` defers the winner screen. So game flows must
    use `this.wait()`/`sleep()` for all delays (never raw `setTimeout` for *game logic*) and must be deterministic from the inputs alone.
 
-9. **Chat** (reactions + voice clips) is a separate `{t:'chat'}` channel, *not* `{t:'msg'}`: the server validates, rate-limits and relays it without logging, so it never
+9. **Computer takeover:** when a player leaves for good the server inserts `{k:'bot', seat}` into the message order. `Hub.pumpInputs` sets
+   `players[seat].cpu = true` and calls `game.wake(seat)`. Every game must implement `wake(s)`: if it is waiting for seat `s`'s input,
+   start the computer's move and return `true`; return `false` while mid-animation (it is retried); `true` if it's not `s`'s turn.
+   Game flows must re-check `players[i].cpu` at each decision point (not cache it at the start of a turn).
+10. **Desync check:** every 5 inputs the host sends `{k:'h'}` with `hash32(JSON.stringify(serialize()))` taken *just before* applying
+   the input; others compare and re-sync via reconnect+replay. So `serialize()` must contain only logical, deterministic state.
+11. **Spectators** have `net.seat === -1` and `net.watching`; `isMine()` is false for every seat. Games must not index arrays with `net.seat`
+   without a guard (see Crazy Eights `hands[v] || []`).
+12. **Chat** (reactions + voice clips) is a separate `{t:'chat'}` channel, *not* `{t:'msg'}`: the server validates, rate-limits and relays it without logging, so it never
    affects game order or replay. Never route game state through it.
 
 ## Testing notes
@@ -76,6 +85,9 @@ everyone in one order; every client applies them (`Hub.pumpInputs` → `game.doI
 - Ludo: `pos` −1 base · 0–50 main track · 51–55 home column · 56 centre; global square = `(LD_ST[colour] + pos) % 52`.
   Opponent blocks (2+ same-colour tokens) can't be landed on or jumped over (toggle `blocks`).
 - Checkers moves are `{from, path[], caps[]}` with `caps[k]` removed when landing on `path[k]`; jump promotion ends the move.
+- Dots & Boxes: lines are numbered horizontals first (`r*C+c`), then verticals (`HN + r*(C+1)+c`); see `dbDims`/`dbLineBoxes`.
+- First player rotates via `cfg.carry.round` (incremented in `start()`, so it is deterministic online).
+- Stats live in `Store 'stats'` (`Hub.recordResult`, skipped while `FF`).
 - Snakes & Ladders boards come from `slGenerate()` (10 snakes, 9 ladders, no crossings, no shared squares); falls back to the classic board.
 - Crazy Eights: 8s wild; draw-until-playable; action cards optional (`opts.actions`); "LAST CARD" must be called at 2 cards or draw 2.
 - Never publish/host with `GN_TEST_PAGE` set — it adds test-only routes.

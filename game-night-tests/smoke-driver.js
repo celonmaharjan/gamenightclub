@@ -9,6 +9,7 @@ const bots = {
   checkers: () => { const t = $$('.ck-sq.tg'); if (t.length) return click(pick(t)); click(pick($$('.ck-sq.mv'))); },
   ludo: () => { const d = $$('.dice.ready'); if (d.length) return click(d[0]); click(pick($$('.tk.can'))); },
   snakes: () => click($$('.dice.ready')[0]),
+  dots: () => click(pick($$('.db-ln:not(.on)'))),
   cards: () => {
     const cv = $$('.cover button'); if (cv.length) return click(cv[0]);
     const sp = $$('.suitpick button'); if (sp.length) return click(pick(sp));
@@ -31,9 +32,10 @@ async function play(id, humans, n, extra = {}, maxSec = 7000) {
   await play('checkers', 1, 2); await play('checkers', 2, 2);
   await play('ludo', 1, 4); await play('ludo', 2, 3, { opts: { blocks: false, bonus: true } });
   await play('snakes', 1, 4); await play('snakes', 2, 2);
+  await play('dots', 1, 2); await play('dots', 2, 3, { opts: { big: true } });
   await play('cards', 1, 3); await play('cards', 2, 2); await play('cards', 3, 3, { opts: { actions: false } });
   // 2) difficulty levels run
-  for (const lv of ['easy', 'hard']) { await play('ttt', 0, 2, { level: lv }); await play('c4', 0, 2, { level: lv }); await play('checkers', 0, 2, { level: lv }); await play('ludo', 0, 2, { level: lv }); await play('cards', 0, 2, { level: lv }); }
+  for (const lv of ['easy', 'hard']) { await play('ttt', 0, 2, { level: lv }); await play('c4', 0, 2, { level: lv }); await play('checkers', 0, 2, { level: lv }); await play('ludo', 0, 2, { level: lv }); await play('cards', 0, 2, { level: lv }); await play('dots', 0, 3, { level: lv }); }
   // 3) undo
   let g; hub.launch(GAMES.find(x => x.meta.id === 'ttt'), { mode: 'cpu', level: 'hard', opts: {}, players: P(2, 1), carry: { round: 0 } }); g = hub.game; await sleep(600);
   click($$('.ttt-cell')[4]); await sleep(1500); const before = g.moves.length; $$('.tools button')[0].click(); await sleep(300);
@@ -54,6 +56,12 @@ async function play(id, humans, n, extra = {}, maxSec = 7000) {
     if (!sv || !shown) { log(`FAIL resume ${id}: save=${!!sv} banner=${shown}`); continue; }
     hub.resume(); await sleep(2500); const g2 = hub.game; log((g2 && g2.constructor === G && !g2.dead ? 'ok   ' : 'FAIL ') + `save/resume ${id}`);
   }
+  // 4b) stats recorded + stats sheet; first player alternates on Play Again
+  { const st = Store.get('stats', {}); const okS = st.ttt && st.ttt.played >= 3 && st.dots && st.dots.played >= 2 && st.ttt.won + st.ttt.lost + st.ttt.drawn >= 1;
+    hub.toMenu(); [...$$('.resume button')].find(b => b.textContent.includes('Stats')).click(); await sleep(100);
+    log((okS && $$('table.stats tr').length >= 3 ? 'ok   ' : 'FAIL ') + `stats recorded and shown (${JSON.stringify(st.ttt)})`); UI.closeAll(); }
+  { const firsts = []; const carry = {}; for (let k = 0; k < 3; k++) { hub.launch(GAMES.find(x => x.meta.id === 'ludo'), { mode: 'pass', level: 'easy', opts: {}, players: P(3, 3), carry }); firsts.push(hub.game.cur); }
+    log((firsts.join() === '0,1,2' ? 'ok   ' : 'FAIL ') + `first player rotates each new game (${firsts})`); }
   // 5) rules sheet + setup sheet render, theme switch, win tally
   hub.toMenu(); $$('.gcard')[0].click(); await sleep(100); log(($$('.seg').length >= 2 && $$('.tog').length >= 1 ? 'ok   ' : 'FAIL ') + 'setup sheet (modes, skill, options)'); UI.closeAll();
   hub.launch(GAMES[2], { mode: 'cpu', level: 'easy', opts: {}, players: P(2, 1), carry: { wins: [2, 1] } }); await sleep(300); [...$$('.tools button')].pop().click(); await sleep(100);

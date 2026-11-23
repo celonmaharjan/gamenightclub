@@ -5,7 +5,7 @@ const PORT = 19000 + Math.floor(Math.random() * 900), home = path.join(__dirname
 fs.mkdirSync(home, { recursive: true });
 const prof = fs.mkdtempSync(path.join(home, 'prof-'));             // non-hidden dir (snap Chromium can't use dot-dirs)
 const chrome = process.env.CHROME || ['chromium-browser', 'chromium', 'google-chrome'].find(c => { try { execFileSync('which', [c]); return true; } catch (e) { return false; } });
-const srv = spawn('node', [path.join(__dirname, '..', 'game-night-server', 'server.js')], { env: { ...process.env, PORT, GN_TEST_PAGE: path.join(__dirname, 'online-driver.html'), GN_EXIT_ON_REPORT: '1' }, stdio: ['ignore', 'pipe', 'inherit'] });
+const srv = spawn('node', [path.join(__dirname, '..', 'game-night-server', 'server.js')], { env: { ...process.env, PORT, GN_TEST_PAGE: path.join(__dirname, 'online-driver.html'), GN_EXIT_ON_REPORT: '1', GN_ROOMS_PER_IP: '1000', GN_MAX_CONN_PER_IP: '1000' }, stdio: ['ignore', 'pipe', 'inherit'] });
 let out = ''; srv.stdout.on('data', d => { out += d; });
 let br; const finish = code => { try { br && br.kill(); srv.kill(); } catch (e) { /* ignore */ } try { fs.rmSync(prof, { recursive: true, force: true }); } catch (e) { /* ignore */ } process.exit(code); };
 setTimeout(() => {

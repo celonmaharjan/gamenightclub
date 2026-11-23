@@ -11,6 +11,9 @@
      • RECONNECT: if a player drops mid-game their seat is held for GN_GRACE_MS (default 120 s).
        They come back with their secret token and the server replays the room's message log,
        so their game fast-forwards to exactly where everyone else is.
+     • If a player leaves for good mid-game, a computer player takes over their seat (a logged 'bot' message,
+       so every client switches at the same point). The host can remove players. Spectators can watch a game.
+     • Abuse limits: per-IP connection + room-creation limits, same-origin check, memory caps, idle rooms expire.
      • It knows nothing about the games — no game logic lives here.
 
    Run:    node server.js            (PORT=9000 node server.js to change the port)
@@ -22,7 +25,11 @@ const GRACE = +process.env.GN_GRACE_MS || 120000;                          // ho
 const MAX_PLAYERS = 4, MAX_MSG = 64 * 1024, MAX_ROOMS = 500, MAX_LOG = 30000, MAX_LOG_BYTES = 8 * 1024 * 1024, GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const HTML_CANDIDATES = [path.join(__dirname, 'game-night.html'), path.join(__dirname, '..', 'game-night.html')];
 const ASSETS = path.join(__dirname, 'assets');
-const TEST_PAGE = process.env.GN_TEST_PAGE || '';                          // test hook: serve one extra page at /test
+const TEST_PAGE = process.env.GN_TEST_PAGE || '';
+const MAX_WATCHERS = 10, MAX_CONN_PER_IP = +process.env.GN_MAX_CONN_PER_IP || 40, ROOMS_PER_IP = +process.env.GN_ROOMS_PER_IP || 12, ROOMS_WINDOW = 10 * 60000;
+const MAX_TOTAL_LOG = 256 * 1024 * 1024, IDLE_ROOM_MS = 6 * 3600000;
+const TRUST_PROXY = !!(process.env.RENDER || process.env.TRUST_PROXY);      // behind Render/a reverse proxy the real IP is in x-forwarded-for
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);                          // test hook: serve one extra page at /test
 
 /* ---------------------------------------------------------------- PWA files */
 const MANIFEST = JSON.stringify({
@@ -112,25 +119,53 @@ class Client {
     if (!this.alive) return; this.alive = false; clearInterval(this.ping); clearInterval(this.rl); leave(this, false);
   }
 }
+const conns = new Map(), created = new Map();                              // ip -> open sockets, ip -> [room creation times]
+/** Browsers send Origin: only allow pages served by this server (or listed in ALLOWED_ORIGINS, or a file:// page talking to localhost). */
+function originOk(origin, host) {
+  if (!origin) return true;                                                 // not a browser (tests, tools)
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin === 'null') return /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  try { return new URL(origin).host === host; } catch (e) { return false; }
+}
 server.on('upgrade', (req, socket) => {
   const key = req.headers['sec-websocket-key'];
   if (!key || (req.headers.upgrade || '').toLowerCase() !== 'websocket') return socket.destroy();
+  const origin = req.headers.origin, host = req.headers.host || '';
+  if (!originOk(origin, host)) { socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); return; }
+  const ip = (TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || socket.remoteAddress || '?';
+  if ((conns.get(ip) || 0) >= MAX_CONN_PER_IP) { socket.end('HTTP/1.1 429 Too Many Requests\r\n\r\n'); return; }
+  conns.set(ip, (conns.get(ip) || 0) + 1); let counted = true;
+  socket.on('close', () => { if (counted) { counted = false; const n = (conns.get(ip) || 1) - 1; if (n > 0) conns.set(ip, n); else conns.delete(ip); } });
   const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
   socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
-  socket.setNoDelay(true); new Client(socket);
+  socket.setNoDelay(true); new Client(socket).ip = ip;
 });
 
 /* --------------------------------------------------------------- rooms
    room = { code, seats:[{name, token, client|null, timer, gone}], started, log:[{from,d}], logBytes, logFull }
    Before the game starts a leaving player's seat is removed. After it starts the seat is held (see GRACE). */
 const rooms = new Map();
-const cleanName = n => String(n || 'Player').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 12) || 'Player';
+const BAD = /\b(f+u+c+k+\w*|sh[i1]t\w*|b[i1]tch\w*|cunts?|assholes?|dick(head)?s?|bastards?|sluts?|whores?|n[i1]gg\w*|fag(got)?s?|retards?)\b/gi;
+const clean = t => t.replace(BAD, w => w[0] + '*'.repeat(w.length - 1));   // light profanity mask for names and chat
+const cleanName = n => clean(String(n || 'Player').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, 12)) || 'Player';
 const newToken = () => crypto.randomBytes(12).toString('hex');
-const LOGGED = new Set(['start', 'again', 'in']);                          // message kinds a rejoining player must replay
+const LOGGED = new Set(['start', 'again', 'in', 'bot']);                          // message kinds a rejoining player must replay
 function newCode() { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; for (;;) { let c = ''; for (let i = 0; i < 4; i++) c += L[crypto.randomInt(L.length)]; if (!rooms.has(c)) return c; } }
-function everyone(room, obj, except) { for (const s of room.seats) if (s.client && s.client !== except) s.client.send(obj); }
+let totalLog = 0;
+function everyone(room, obj, except) {
+  for (const s of room.seats) if (s.client && s.client !== except) s.client.send(obj);
+  for (const w of room.watchers) if (w !== except) w.send(obj);                       // spectators see everything except the lobby roster
+}
+function addLog(room, entry) {
+  const size = JSON.stringify(entry).length; room.logBytes += size;
+  if (room.logFull || room.log.length >= MAX_LOG || room.logBytes > MAX_LOG_BYTES || totalLog + size > MAX_TOTAL_LOG) { room.logFull = true; return; }
+  room.log.push(entry); totalLog += size;
+}
 function roster(room) { const players = room.seats.map(s => s.name); room.seats.forEach((s, i) => s.client && s.client.send({ t: 'roster', players, you: i, started: room.started })); }
-function removeRoom(room) { room.seats.forEach(s => clearTimeout(s.timer)); rooms.delete(room.code); }
+function removeRoom(room) {
+  room.seats.forEach(s => clearTimeout(s.timer)); if (rooms.get(room.code) === room) { rooms.delete(room.code); totalLog -= room.log.reduce((n, e) => n + JSON.stringify(e).length, 0); }
+  for (const w of room.watchers) { w.room = null; w.send({ t: 'left', seat: -1, name: 'Everyone' }); } room.watchers.clear();
+}
 function join(room, c, name) {
   const seat = { name: cleanName(name), token: newToken(), client: c, timer: null, gone: false };
   room.seats.push(seat); c.room = room; c.seat = room.seats.length - 1; return seat;
@@ -139,12 +174,14 @@ function handle(c, m) {
   if (m.t === 'ping') return c.send({ t: 'pong' });
   if (m.t === 'create') {
     if (c.room) return; if (rooms.size >= MAX_ROOMS) return c.send({ t: 'error', msg: 'Server is full, try later' });
-    const room = { code: newCode(), seats: [], started: false, log: [], logBytes: 0, logFull: false }; rooms.set(room.code, room);
+    const now = Date.now(), mine = (created.get(c.ip) || []).filter(t => now - t < ROOMS_WINDOW);
+    if (mine.length >= ROOMS_PER_IP) return c.send({ t: 'error', msg: 'Too many rooms created — wait a few minutes' }); mine.push(now); created.set(c.ip, mine);
+    const room = { code: newCode(), seats: [], watchers: new Set(), started: false, log: [], logBytes: 0, logFull: false, last: now }; rooms.set(room.code, room);
     const s = join(room, c, m.name); c.send({ t: 'room', code: room.code, seat: 0, token: s.token }); roster(room);
   } else if (m.t === 'join') {
     if (c.room) return; const room = rooms.get(String(m.code || '').toUpperCase().trim());
     if (!room) return c.send({ t: 'error', msg: 'No room with that code' });
-    if (room.started) return c.send({ t: 'error', msg: 'That game has already started' });
+    if (room.started) return c.send({ t: 'error', msg: 'That game has already started — you can watch it instead', canWatch: true });
     if (room.seats.length >= MAX_PLAYERS) return c.send({ t: 'error', msg: 'Room is full (4 players max)' });
     const s = join(room, c, m.name); c.send({ t: 'room', code: room.code, seat: c.seat, token: s.token }); roster(room);
   } else if (m.t === 'rejoin') {
@@ -156,39 +193,54 @@ function handle(c, m) {
     clearTimeout(s.timer); s.timer = null; s.client = c; c.room = room; c.seat = seat;
     c.send({ t: 'rejoined', code: room.code, seat, token: s.token, log: room.log });
     everyone(room, { t: 'back', seat, name: s.name }, c);
+  } else if (m.t === 'watch') {
+    if (c.room) return; const room = rooms.get(String(m.code || '').toUpperCase().trim());
+    if (!room || !room.started) return c.send({ t: 'error', msg: room ? 'That game has not started yet — join it instead' : 'No room with that code', watch: true });
+    if (room.logFull) return c.send({ t: 'error', msg: 'That game is too long to watch', watch: true });
+    if (room.watchers.size >= MAX_WATCHERS) return c.send({ t: 'error', msg: 'Too many spectators', watch: true });
+    room.watchers.add(c); c.room = room; c.seat = -1; c.watching = true;
+    c.send({ t: 'watching', code: room.code, players: room.seats.map(s => s.name), log: room.log });
+  } else if (m.t === 'kick' && c.room && !c.watching && c.seat === 0) {
+    const room = c.room, seat = m.seat, s = Number.isInteger(seat) && seat > 0 ? room.seats[seat] : null; if (!s || s.gone) return;
+    const target = s.client;
+    if (!room.started) { if (target) { target.send({ t: 'error', msg: 'The host removed you from the room' }); leave(target, true); } return; }
+    if (target) { target.send({ t: 'kicked' }); target.room = null; setTimeout(() => target.socket.destroy(), 100); }
+    s.client = null; markGone(room, seat, 'removed');
   } else if (m.t === 'bye') {
     leave(c, true);
-  } else if (m.t === 'chat' && c.room && c.room.started) {
+  } else if (m.t === 'chat' && c.room && !c.watching) {
     // Reactions and voice clips: relayed to the others as-is (validated, rate-limited), never logged or replayed.
     const now = Date.now(), room = c.room; let out = null;
     if (m.k === 'e' && Number.isInteger(m.i) && m.i >= 0 && m.i < 8) { if (now - (c.lastE || 0) < 300) return; c.lastE = now; out = { t: 'chat', from: c.seat, k: 'e', i: m.i }; }
     else if (m.k === 't' && typeof m.s === 'string') {
-      const text = m.s.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 200); if (!text || now - (c.lastT || 0) < 400) return; c.lastT = now; out = { t: 'chat', from: c.seat, k: 't', s: text };
+      const text = m.s.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 200); if (!text || now - (c.lastT || 0) < 400) return; c.lastT = now; out = { t: 'chat', from: c.seat, k: 't', s: clean(text) };
     }
     else if (m.k === 'v' && typeof m.a === 'string' && m.a.length <= 44000 && /^[A-Za-z0-9+/=]+$/.test(m.a) && /^audio\/[a-z0-9]+(;codecs=[a-z0-9]+)?$/.test(m.mt || '')) {
       if (now - (c.lastV || 0) < 700) return; c.lastV = now; out = { t: 'chat', from: c.seat, k: 'v', mt: m.mt, a: m.a };
     }
-    if (out) everyone(room, out, c);
-  } else if (m.t === 'msg' && c.room && m.d && typeof m.d === 'object') {
-    const room = c.room, k = m.d.k;
+    if (out) for (const st of room.seats) if (st.client && st.client !== c) st.client.send(out);   // players only (not spectators)
+  } else if (m.t === 'msg' && c.room && !c.watching && m.d && typeof m.d === 'object') {
+    const room = c.room, k = m.d.k; room.last = Date.now(); if (k === 'bot') return;     // only the server creates 'bot' takeovers
     if (k === 'start') { if (c.seat !== 0 || room.started) return; room.started = true; }   // only the host starts, and only once
     else if (!room.started) return;
     const entry = { from: c.seat, d: m.d };
-    if (LOGGED.has(k)) {
-      const size = JSON.stringify(entry).length; room.logBytes += size;
-      if (room.log.length >= MAX_LOG || room.logBytes > MAX_LOG_BYTES) room.logFull = true; else room.log.push(entry);
-    }
+    if (LOGGED.has(k)) addLog(room, entry);
     everyone(room, { t: 'msg', from: c.seat, d: m.d });                                    // echo to everyone, sender included, in one global order
   }
 }
 /** Seat marked as permanently gone: tell everyone, and clean up the room when nobody is left. */
-function markGone(room, seat) {
+function markGone(room, seat, why) {
   const s = room.seats[seat]; if (!s || s.gone) return; s.gone = true; clearTimeout(s.timer); s.timer = null; s.client = null;
-  everyone(room, { t: 'left', seat, name: s.name });
+  if (room.started) {                                                                     // a computer player takes the seat, at one point in the global order
+    const d = { k: 'bot', seat }; addLog(room, { from: -1, d }); everyone(room, { t: 'msg', from: -1, d });
+  }
+  everyone(room, { t: 'left', seat, name: s.name, why: why || '' });
   if (room.seats.every(x => !x.client)) removeRoom(room);
 }
 function leave(c, voluntary) {
-  const room = c.room; if (!room) return; c.room = null; const s = room.seats[c.seat]; if (!s || s.client !== c) return;
+  const room = c.room; if (!room) return; c.room = null;
+  if (c.watching) { room.watchers.delete(c); return; }
+  const s = room.seats[c.seat]; if (!s || s.client !== c) return;
   if (!room.started) {                                                                    // lobby: just remove the seat
     room.seats.splice(c.seat, 1); room.seats.forEach((x, i) => { if (x.client) x.client.seat = i; });
     if (!room.seats.length) removeRoom(room); else roster(room); return;
@@ -199,6 +251,16 @@ function leave(c, voluntary) {
   s.timer = setTimeout(() => markGone(room, seat), GRACE);
   if (room.seats.every(x => !x.client && !x.timer)) removeRoom(room);
 }
+
+/* Rooms nobody has played in for 6 hours are closed (frees memory on long-running servers). */
+setInterval(() => {
+  const now = Date.now();
+  for (const room of rooms.values()) if (now - room.last > IDLE_ROOM_MS) {
+    for (const st of room.seats) if (st.client) { st.client.send({ t: 'error', msg: 'Room closed after being idle' }); st.client.room = null; st.client.socket.destroy(); }
+    removeRoom(room);
+  }
+  for (const [ip, ts] of created) { const keep = ts.filter(t => now - t < ROOMS_WINDOW); if (keep.length) created.set(ip, keep); else created.delete(ip); }
+}, 10 * 60000).unref();
 
 server.listen(PORT, () => {
   const nets = Object.values(require('os').networkInterfaces()).flat().filter(n => n && n.family === 'IPv4' && !n.internal).map(n => n.address);

@@ -23,6 +23,7 @@ const bots = {
   checkers: p => { const t = p.$$('.ck-sq.tg'); return t.length ? pick(t) : pick(p.$$('.ck-sq.mv')); },
   ludo: p => { const dd = p.$$('.dice.ready'); return dd.length ? dd[0] : pick(p.$$('.tk.can')); },
   snakes: p => p.$$('.dice.ready')[0],
+  dots: p => pick(p.$$('.db-ln:not(.on)')),
   cards: p => { const sp = p.$$('.suitpick button'); if (sp.length) return pick(sp);
     const lc = p.$$('.last:not(:disabled):not(.on)'); if (lc.length && Math.random() < .85) return lc[0];
     const ok = p.$$('.hand .pc.ok'); if (ok.length) return pick(ok); return p.$$('.pile.glow')[0]; }
@@ -32,7 +33,7 @@ const segBtn = (p, label, text) => { const l = p.$$('.overlay label').find(x => 
 
 /** Lobby through the real UI, then play to the end with a bot on every phone. opts: {bots, level, invite, drop:[...], reload:[...]} */
 async function scenario(gameName, id, n, o = {}) {
-  const tag = `${gameName} x${n}${o.bots ? ' +' + o.bots + ' bot' : ''}${o.drop ? ' +drop' : ''}${o.reload ? ' +reload' : ''}`;
+  const tag = `${gameName} x${n}${o.bots ? ' +' + o.bots + ' bot' : ''}${o.drop ? ' +drop' : ''}${o.reload ? ' +reload' : ''}${o.leave ? ' +leave' : ''}${o.kick ? ' +kick' : ''}${o.watch ? ' +spectator' : ''}${o.corrupt ? ' +desync' : ''}`;
   const only = new URLSearchParams(location.search).get('only'); if (only && !tag.includes(only)) return [];   // ?only=Ludo runs just matching scenarios
   const ps = [await phone()]; const host = ps[0]; host.hub.openOnline(); host.type(host.d().querySelector('.sheet input'), 'Host');
   host.byText('button', 'Create room').click(); await until(() => host.hub.net && host.hub.net.code, 4000, 'room code');
@@ -50,25 +51,43 @@ async function scenario(gameName, id, n, o = {}) {
   host.byText('button', 'Start').click();
   await until(() => ps.every(p => p.game && p.game.constructor.meta.id === id), 4000, 'game start on all clients');
   const total = n + (o.bots || 0); if (ps.some(p => p.game.players.length !== total || p.game.players.filter(x => x.cpu).length !== (o.bots || 0))) throw new Error('wrong player/bot setup');
+  let spec = null;
+  if (o.watch) {                                                         // a spectator opens the room after the game started (through the real UI)
+    spec = await phone(); spec.hub.openOnline(); const ins = spec.d().querySelectorAll('.sheet input'); spec.type(ins[0], 'Viewer'); spec.type(ins[2], code);
+    spec.byText('button', 'Watch').click(); await until(() => spec.game && spec.hub.net && spec.hub.net.watching, 6000, 'spectator sees the game');
+    if (!spec.d().querySelector('#chatbtn').classList.contains('hidden')) throw new Error('spectators should not get the chat button');
+  }
+  const players = ps.slice(); if (spec) ps.push(spec);                  // ps = everyone whose game must match; players = phones that can act
+  const out = new Set(); let corrupted = false;
   // ---- play: every phone's bot tries every tick; only the phone whose turn it is can act. Optionally drop/reload phones mid-game.
   const nets = ps.map(p => p.hub.net), dropped = new Set(), reloaded = new Set(); let ticks = 0; const t0 = Date.now();
-  while (!ps.every(p => p.game && p.game.over) && Date.now() - t0 < 200000) {
-    for (const [i, p] of ps.entries()) { try { const el = bots[id](p); el && el.click(); } catch (e) { /* page mid-load */ } }
+  const live = () => ps.filter(p => !out.has(p));
+  while (!live().every(p => p.game && p.game.over) && Date.now() - t0 < 200000) {
+    for (const p of players) { if (out.has(p)) continue; try { const el = bots[id](p); el && el.click(); } catch (e) { /* page mid-load */ } }
     const c = ps[0].game && ps[0].hub.net ? ps[0].hub.net.consumed : 0;
+    for (const [k, at] of (o.leave || []).entries()) { const p = players[k + 1]; if (!out.has(p) && c >= at) { out.add(p); p.hub.leaveOnline(); } }            // presses Leave
+    for (const [k, at] of (o.kick || []).entries()) { const p = players[k + 1]; if (!out.has(p) && c >= at) { out.add(p); ps[0].hub.net.send({ t: 'kick', seat: k + 1 }); } }
+    if (o.corrupt && !corrupted && c >= o.corrupt && players[1].game && !players[1].game.over) { corrupted = true; players[1].game.pos[0] += 3; }   // simulate a desync bug on one phone
     for (const [k, at] of (o.drop || []).entries()) if (!dropped.has(k) && c >= at) { dropped.add(k); ps[k + 1].hub.net.ws.close(); }
     for (const [k, at] of (o.reload || []).entries()) if (!reloaded.has(k) && c >= at) { reloaded.add(k); ps[ps.length - 1 - k].f.contentWindow.location.reload(); }
     await sleep(25); ticks++;
   }
-  const done = ps.every(p => p.game && p.game.over); await sleep(1500);
-  const states = ps.map(p => JSON.stringify(p.game.serialize())), same = states.every(s => s === states[0]);
-  const titles = ps.map(p => (p.d().querySelector('.winner h3') || {}).textContent), tsame = titles.every(t => t && t === titles[0]);
+  const done = live().every(p => p.game && p.game.over); await sleep(1500);
+  const states = live().map(p => JSON.stringify(p.game.serialize())), same = states.every(s => s === states[0]);
+  const titles = live().map(p => (p.d().querySelector('.winner h3') || {}).textContent), tsame = titles.every(t => t && t === titles[0]);
   let extra = '';
+  for (const p of out) {
+    const k = players.indexOf(p), g0 = ps[0].game; extra += ` p${k}→🤖=${!!(g0 && g0.players[k].cpu)}`; if (!g0 || !g0.players[k].cpu) throw new Error('seat was not taken over by a computer');
+    if (o.kick && !/removed you/.test((p.d().querySelector('.sheet h3') || {}).textContent || '')) throw new Error('kicked phone was not told');
+  }
+  if (o.corrupt) { extra += ` resynced=${players[1].hub.resyncs >= 1}`; if (!(players[1].hub.resyncs >= 1)) throw new Error('desync was not detected'); }
+  if (spec) extra += ' spectatorMatches=' + (JSON.stringify(spec.game.serialize()) === JSON.stringify(ps[0].game.serialize()));
   for (const k of dropped) { const re = ps[k + 1].hub.net !== nets[k + 1]; extra += ` reconnected(p${k + 1})=${re}`; if (!re) throw new Error('phone did not reconnect'); }
   log(`${done && same && tsame ? 'ok   ' : 'FAIL '}${tag}: finished=${done} identicalState=${same} sameWinner=${tsame} ("${titles[0]}")${extra} ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-  if (!done) return ps;
-  const gen = ps[0].hub.net.gen; ps[ps.length - 1].d().querySelector('.winner .btn').click();
-  try { await until(() => ps.every(p => p.hub.net.gen === gen + 1 && p.game && !p.game.over && !p.game.dead), 4000, 'play again'); await sleep(200);
-    const s2 = ps.map(p => JSON.stringify(p.game.serialize())); log((s2.every(s => s === s2[0]) ? 'ok   ' : 'FAIL ') + `  play-again restarted all ${n} phones with identical state`);
+  if (!done) { for (const [i, p] of ps.entries()) { const hb = p.hub, n = hb.net, g = hb.game; log(`   diag p${i}: net=${!!n} dead=${n && n.dead} repl=${n && n.replaying} reconn=${hb.reconnecting} consumed=${n && n.consumed} queue=${n && JSON.stringify(n.queue).slice(0, 200)} cur=${g && g.cur} over=${g && g.over} dice=${g && g.dice && !!g.dice.onClick} pos=${g && JSON.stringify(g.pos)} bar=${hb.netbar.textContent}`); } return ps; }
+  const gen = ps[0].hub.net.gen, clicker = players.filter(p => !out.has(p)).pop(); clicker.d().querySelector('.winner .btn').click();
+  try { await until(() => live().every(p => p.hub.net.gen === gen + 1 && p.game && !p.game.over && !p.game.dead), 4000, 'play again'); await sleep(200);
+    const s2 = live().map(p => JSON.stringify(p.game.serialize())); log((s2.every(s => s === s2[0]) ? 'ok   ' : 'FAIL ') + `  play-again restarted all ${n} phones with identical state`);
   } catch (e) { log('FAIL   play again: ' + e.message); }
   return ps;
 }
@@ -86,6 +105,13 @@ async function scenario(gameName, id, n, o = {}) {
     await scenario('Connect Four', 'c4', 1, { bots: 1, level: 'Easy' });
     await scenario('Crazy Eights', 'cards', 3, { drop: [6], reload: [14] });              // a phone loses its connection, another reloads the page mid-game
     await scenario('Checkers', 'checkers', 2, { drop: [8] });
+    await scenario('Dots & Boxes', 'dots', 3);
+    await scenario('Dots & Boxes', 'dots', 2, { bots: 1, level: 'Easy', watch: true });     // spectator's copy must match the players'
+    await scenario('Connect Four', 'c4', 1, { bots: 1, level: 'Easy', watch: true });       // Easy bots use seeded randomness (was Math.random)
+    await scenario('Ludo', 'ludo', 3, { leave: [6] });                                       // a player leaves -> a computer finishes their game
+    await scenario('Crazy Eights', 'cards', 3, { kick: [5] });                              // host removes a player mid-game
+    await scenario('Checkers', 'checkers', 2, { leave: [5] });
+    await scenario('Snakes & Ladders', 'snakes', 2, { corrupt: 6 });                        // one phone's state gets corrupted -> detected and re-synced
     const ps = await scenario('Tic-Tac-Toe', 'ttt', 2);                                  // then one player leaves on purpose
     if (!ps.length) { log('ALL DONE'); await fetch('/report', { method: 'POST', body: out.textContent }); return; }
     ps[0].hub.net.game({ k: 'again', gen: ps[0].hub.net.gen + 1, seed: 5 }); await sleep(300);
@@ -110,8 +136,8 @@ async function scenario(gameName, id, n, o = {}) {
     ps[1].hub.voiceOn = false; const before = ps[1].d().querySelectorAll('#reactions .react').length; ps[1].hub.onChat(ps[1].hub.net, { from: 0, k: 'v', mt: 'audio/webm', a: 'AAAA' }); if (ps[1].d().querySelectorAll('#reactions .react').length !== before) throw new Error('voices-off should ignore clips');
     log('ok   chat: reaction + sound reaches the other phone with the sender name; voice clip shows 🎤; "voices off" silences clips');
     ps[1].hub.leaveOnline(); if (!ps[1].d().querySelector('#chatbtn').classList.contains('hidden')) throw new Error('chat button should hide after leaving');
-    await until(() => ps[0].d().querySelector('.sheet h3') && /left the game/.test(ps[0].d().querySelector('.sheet h3').textContent), 3000, 'left notice');
-    log('ok   player pressing Leave mid-game shows "left the game" to the others');
+    await until(() => ps[0].game.players[1].cpu, 3000, 'computer takes over the seat'); for (let k = 0; k < 400 && !ps[0].game.over; k++) { const el = bots.ttt(ps[0]); el && el.click(); await sleep(25); } if (!ps[0].game.over) throw new Error('game did not finish with the computer');
+    log('ok   player pressing Leave mid-game: a computer takes the seat and the game finishes');
   } catch (e) { log('FAIL ' + e.message); }
   log('ALL DONE');
   await fetch('/report', { method: 'POST', body: out.textContent });
