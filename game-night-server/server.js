@@ -162,8 +162,11 @@ function handle(c, m) {
     // Reactions and voice clips: relayed to the others as-is (validated, rate-limited), never logged or replayed.
     const now = Date.now(), room = c.room; let out = null;
     if (m.k === 'e' && Number.isInteger(m.i) && m.i >= 0 && m.i < 8) { if (now - (c.lastE || 0) < 300) return; c.lastE = now; out = { t: 'chat', from: c.seat, k: 'e', i: m.i }; }
+    else if (m.k === 't' && typeof m.s === 'string') {
+      const text = m.s.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 200); if (!text || now - (c.lastT || 0) < 400) return; c.lastT = now; out = { t: 'chat', from: c.seat, k: 't', s: text };
+    }
     else if (m.k === 'v' && typeof m.a === 'string' && m.a.length <= 44000 && /^[A-Za-z0-9+/=]+$/.test(m.a) && /^audio\/[a-z0-9]+(;codecs=[a-z0-9]+)?$/.test(m.mt || '')) {
-      if (now - (c.lastV || 0) < 1500) return; c.lastV = now; out = { t: 'chat', from: c.seat, k: 'v', mt: m.mt, a: m.a };
+      if (now - (c.lastV || 0) < 700) return; c.lastV = now; out = { t: 'chat', from: c.seat, k: 'v', mt: m.mt, a: m.a };
     }
     if (out) everyone(room, out, c);
   } else if (m.t === 'msg' && c.room && m.d && typeof m.d === 'object') {

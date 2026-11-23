@@ -54,5 +54,5 @@ cd ../game-night-tests && node online.test.js    # 2–4 real game clients playi
 
 ## Chat
 
-`{t:'chat', k:'e', i}` (emoji reaction, index 0–7) and `{t:'chat', k:'v', mt, a}` (base64 audio clip ≤ ~32 KB, `audio/*` only) are validated, rate-limited
+`{t:'chat', k:'e', i}` (emoji reaction, index 0–7), `{t:'chat', k:'t', s}` (text, ≤ 200 chars) and `{t:'chat', k:'v', mt, a}` (base64 audio clip ≤ ~32 KB, `audio/*` only) are validated, rate-limited
 (0.3 s / 1.5 s per player) and relayed to the *other* seats. They are not logged, so a rejoining player does not replay them.

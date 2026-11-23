@@ -95,11 +95,17 @@ async function scenario(gameName, id, n, o = {}) {
     ps[0].d().querySelectorAll('#chatpanel .emo button')[4].click();
     await until(() => ps[1].d().querySelector('#reactions .react b'), 2000, 'reaction on the other phone'); if (ps[1].d().querySelector('#reactions .react b').textContent !== '🎉') throw new Error('wrong reaction');
     const nm = ps[1].d().querySelector('#reactions .react small').textContent; if (nm !== 'Host') throw new Error('reaction should carry the sender name, got ' + nm);
-    if (ps[0].hub.canVoice()) {   // real recording from Chromium's fake microphone, sent through the server, heard (indicator) on the other phone
-      ps[0].hub.startTalk(); await until(() => ps[0].hub.rec, 3000, 'recorder started'); await sleep(900); ps[0].hub.stopTalk();
-      await until(() => [...ps[1].d().querySelectorAll('#reactions .react')].some(r => r.textContent.includes('🎤') && r.textContent.includes('Host')), 4000, 'voice clip from the real recorder');
-      log('ok   voice: real mic recording -> server -> other phone plays it (indicator shows who spoke)');
+    if (ps[0].hub.canVoice()) {   // tap-once "open mic": records 3 s clips back to back from Chromium's fake microphone and sends each; stays open until tapped again
+      const hb = ps[0].hub; hb.latched = true; hb.startTalk(); await until(() => hb.talking && hb.rec, 3000, 'open mic started');
+      await until(() => [...ps[1].d().querySelectorAll('#reactions .react')].some(r => r.textContent.includes('🎤') && r.textContent.includes('Host')), 6000, 'first voice clip arrives');
+      await sleep(300); if (!hb.talking || !hb.rec) throw new Error('open mic should keep recording after the first clip'); if (!hb.talkBtn.textContent.includes('tap to stop')) throw new Error('button should say tap to stop');
+      hb.talkBtn.dispatchEvent(new (ps[0].w().PointerEvent)('pointerdown', { bubbles: true })); await sleep(100); if (hb.talking) throw new Error('tapping again should stop the mic');
+      log('ok   voice: tap once = open mic (clips keep flowing to the other phone), tap again stops it');
     } else log('skip voice recording (no MediaRecorder here)');
+    ps[0].hub.cinput.value = 'good game!'; ps[0].hub.sendText(); await until(() => ps[1].hub.clog.textContent.includes('good game!'), 2000, 'text chat message');
+    if (ps[1].d().querySelector('#chatbtn').dataset.n !== '1') throw new Error('unread badge missing'); if (!ps[0].hub.clog.textContent.includes('good game!')) throw new Error('own message not shown');
+    ps[1].d().querySelector('#chatbtn').click(); if (ps[1].d().querySelector('#chatbtn').dataset.n) throw new Error('badge should clear when opening chat'); ps[1].d().querySelector('#chatbtn').click();
+    log('ok   text chat: message reaches the other phone, unread badge shows and clears');
     ps[1].hub.onChat(ps[1].hub.net, { from: 0, k: 'v', mt: 'audio/webm', a: 'AAAA' }); if (![...ps[1].d().querySelectorAll('#reactions .react b')].some(b => b.textContent === '🎤')) throw new Error('voice indicator missing');
     ps[1].hub.voiceOn = false; const before = ps[1].d().querySelectorAll('#reactions .react').length; ps[1].hub.onChat(ps[1].hub.net, { from: 0, k: 'v', mt: 'audio/webm', a: 'AAAA' }); if (ps[1].d().querySelectorAll('#reactions .react').length !== before) throw new Error('voices-off should ignore clips');
     log('ok   chat: reaction + sound reaches the other phone with the sender name; voice clip shows 🎤; "voices off" silences clips');

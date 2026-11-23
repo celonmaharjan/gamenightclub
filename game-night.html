@@ -312,6 +312,12 @@ button.chip{color:inherit;cursor:pointer}
 #talk{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #talk.rec{background:#dc2626;border-color:#fca5a5;animation:pulse 1s infinite}
 #chatpanel small{opacity:.75;text-align:center}
+#chatpanel{max-height:calc(100vh - 90px);overflow:auto}
+#chatpanel .clog{height:130px;overflow:auto;display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:10px;background:#0006;font-size:14px}
+#chatpanel .cl{display:flex;gap:6px;align-items:baseline;word-break:break-word}#chatpanel .cl b{color:#fbbf24;flex:none}#chatpanel .cl.me b{color:#86efac}
+#chatpanel input{flex:1;min-width:0;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:#fff1;color:inherit;font-size:16px}
+#chatbtn[data-n]::after{content:attr(data-n);position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#ef4444;color:#fff;font:700 12px/20px system-ui;text-align:center}
+#chatbtn{position:fixed}
 #reactions{position:fixed;inset:0;pointer-events:none;z-index:130;overflow:hidden}
 .react{position:absolute;bottom:90px;display:grid;justify-items:center;gap:2px;animation:rise 2.4s ease-out forwards}
 .react b{font-size:46px;filter:drop-shadow(0 4px 6px #0008)}
@@ -1524,31 +1530,36 @@ class Hub {
     this.voiceOn = Store.get('voice', true); this.lastReact = 0; this.stream = null; this.rec = null;
     this.reactEl = h('div', { id: 'reactions', 'aria-hidden': 'true' });
     this.chatBtn = h('button', { id: 'chatbtn', class: 'hidden', 'aria-label': 'Chat: reactions and voice', onclick: () => this.toggleChat() }, '💬');
-    this.talkBtn = h('button', { id: 'talk', class: 'btn', 'aria-label': 'Hold to talk' }, '🎤 Hold to talk');
-    const t = this.talkBtn, end = () => this.stopTalk();
-    t.addEventListener('pointerdown', e => { e.preventDefault(); try { t.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } this.startTalk(); });
-    t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end); t.addEventListener('contextmenu', e => e.preventDefault());
-    t.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); this.startTalk(); } });
-    t.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') end(); });
-    this.voiceBtn = h('button', { class: 'btn ghost', onclick: () => { this.voiceOn = !this.voiceOn; Store.set('voice', this.voiceOn); this.paintVoice(); } });
-    this.chatNote = h('small');
+    this.talkBtn = h('button', { id: 'talk', class: 'btn', 'aria-label': 'Tap to start talking, tap again to stop. Or hold to talk.' });
+    const t = this.talkBtn; this.latched = false; this.downAt = 0;
+    t.addEventListener('pointerdown', e => { e.preventDefault(); try { t.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } this.talkDown(); });
+    t.addEventListener('pointerup', () => this.talkUp()); t.addEventListener('pointercancel', () => this.talkUp()); t.addEventListener('contextmenu', e => e.preventDefault());
+    t.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); if (this.talking) this.stopTalk(); else { this.latched = true; this.startTalk(); } } });
+    this.voiceBtn = h('button', { class: 'btn ghost', onclick: () => { this.voiceOn = !this.voiceOn; Store.set('voice', this.voiceOn); this.paintVoice(); if (!this.voiceOn) this.vq = []; } });
+    this.chatNote = h('small'); this.clog = h('div', { class: 'clog', role: 'log', 'aria-live': 'polite' }, h('small', null, 'No messages yet'));
+    this.cinput = h('input', { type: 'text', maxlength: 200, placeholder: 'Type a message…', enterkeyhint: 'send', 'aria-label': 'Chat message', autocomplete: 'off' });
+    this.cinput.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') this.sendText(); });
     this.chatPanel = h('div', { id: 'chatpanel', class: 'hidden' },
+      this.clog,
+      h('div', { class: 'row' }, this.cinput, h('button', { class: 'btn small', onclick: () => this.sendText() }, 'Send')),
       h('div', { class: 'emo' }, REACT.map((r, i) => h('button', { 'aria-label': r.n, title: r.n, onclick: () => this.sendReact(i) }, r.e))),
       h('div', { class: 'row' }, t, this.voiceBtn), this.chatNote);
+    this.chatLog = []; this.unread = 0; this.vq = []; this.vPlaying = false; this.talking = false; this.paintTalk();
     this.paintVoice();
   }
   paintVoice() { this.voiceBtn.textContent = this.voiceOn ? '🔊 Voices on' : '🔇 Voices off'; this.voiceBtn.setAttribute('aria-pressed', String(this.voiceOn)); }
   canVoice() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== 'undefined' && window.isSecureContext !== false); }
   paintChat() {
     const on = !!(this.net && this.net.started); this.chatBtn.classList.toggle('hidden', !on);
-    if (!on) { this.chatPanel.classList.add('hidden'); this.releaseMic(); }
+    if (!on) { this.chatPanel.classList.add('hidden'); this.releaseMic(); this.clog.replaceChildren(h('small', null, 'No messages yet')); this.unread = 0; delete this.chatBtn.dataset.n; this.vq = []; }
   }
   toggleChat() {
     const open = this.chatPanel.classList.toggle('hidden') === false; Sound.init();
-    this.chatNote.textContent = this.canVoice() ? 'Hold the mic button and talk (up to 4 s)' : 'Voice needs HTTPS (or localhost) and a microphone — reactions still work';
+    this.unread = 0; delete this.chatBtn.dataset.n; if (open) setTimeout(() => this.clog.scrollTo(0, this.clog.scrollHeight), 0);
+    this.chatNote.textContent = this.canVoice() ? 'Tap 🎤 once to keep talking (others hear you in 3 s clips), or hold it to send one clip' : 'Voice needs HTTPS (or localhost) and a microphone — reactions still work';
     this.talkBtn.disabled = !this.canVoice(); if (!open) this.releaseMic();
   }
-  releaseMic() { try { if (this.rec && this.rec.state === 'recording') { this.rec.onstop = null; this.rec.stop(); } } catch (e) { /* ignore */ } this.rec = null; this.talkBtn.classList.remove('rec'); if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; } }
+  releaseMic() { this.talking = false; this.latched = false; clearTimeout(this.maxT); clearTimeout(this.segT); try { if (this.rec && this.rec.state === 'recording') { this.rec.onstop = null; this.rec.stop(); } } catch (e) { /* ignore */ } this.rec = null; this.paintTalk(); if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; } }
   sendReact(i) {
     const n = this.net, now = Date.now(); if (!n || !n.started || now - this.lastReact < 500) return; this.lastReact = now;
     n.send({ t: 'chat', k: 'e', i }); this.showReact(n.players[n.seat] || 'You', i);
@@ -1558,31 +1569,65 @@ class Hub {
     const el = h('div', { class: 'react', style: { left: (8 + crand(1) * 70) + '%' } }, h('b', null, r.e), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500);
     if (!Sound.muted) { Sound.init(); r.s.forEach(x => Sound.tone(...x)); }
   }
+  talkDown() { if (this.talking) { this.latched = false; this.stopTalk(); this.skipUp = true; return; } this.downAt = Date.now(); this.startTalk(); }
+  /** Quick tap = keep talking until you tap again ("open mic"); press-and-hold = push-to-talk (stops when you let go). */
+  talkUp() { if (this.skipUp) { this.skipUp = false; return; } if (!this.talking && !this.starting) return; if (Date.now() - this.downAt < 400) { this.latched = true; this.paintTalk(); } else this.stopTalk(); }
+  paintTalk() {
+    this.talkBtn.classList.toggle('rec', !!this.talking);
+    this.talkBtn.textContent = this.talking ? (this.latched ? '⏹ Talking… tap to stop' : '🎤 Talking… let go to send') : '🎤 Tap to talk (or hold)';
+  }
   async startTalk() {
-    if (this.rec || !this.net || !this.canVoice()) return; this.held = true;
+    if (this.talking || this.starting || !this.net || !this.canVoice()) return; this.starting = true; this.held = true; this.talkBtn.classList.add('rec');
     try { if (!this.stream) this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-    catch (e) { this.held = false; this.chatNote.textContent = 'Microphone blocked — allow it in your browser to talk'; return; }
-    if (!this.held || !this.net) return;                                                    // let go while the permission prompt was open
+    catch (e) { this.starting = false; this.latched = false; this.paintTalk(); this.chatNote.textContent = 'Microphone blocked — allow it in your browser to talk'; return; }
+    this.starting = false; if (!this.net || (!this.held && !this.latched)) { this.paintTalk(); return; }   // let go before the permission prompt closed
+    this.talking = true; this.talkStart = Date.now(); this.paintTalk(); this.segment();
+    clearTimeout(this.maxT); this.maxT = setTimeout(() => { this.stopTalk(); this.chatNote.textContent = 'Mic closed after 90 s — tap to talk again'; }, 90000);
+  }
+  /** Records back-to-back 3 s clips while the mic is open; each clip is sent as soon as it ends, so others hear you with ~3 s delay. */
+  segment() {
+    if (!this.talking || !this.stream) return;
     const mt = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find(m => MediaRecorder.isTypeSupported(m)) || '';
-    let rec; try { rec = new MediaRecorder(this.stream, mt ? { mimeType: mt, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 }); } catch (e) { this.chatNote.textContent = 'This browser cannot record audio'; return; }
-    const chunks = [], t0 = Date.now(); this.rec = rec; this.talkBtn.classList.add('rec');
+    let rec; try { rec = new MediaRecorder(this.stream, mt ? { mimeType: mt, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 }); } catch (e) { this.chatNote.textContent = 'This browser cannot record audio'; this.stopTalk(); return; }
+    const chunks = [], t0 = Date.now(); this.rec = rec;
     rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
     rec.onstop = () => {
-      this.talkBtn.classList.remove('rec'); clearTimeout(this.recT); if (this.rec === rec) this.rec = null;
+      clearTimeout(this.segT); if (this.rec === rec) this.rec = null;
+      if (this.talking) this.segment();                                                    // keep the mic open: start the next clip right away
       const blob = new Blob(chunks, { type: rec.mimeType || mt || 'audio/webm' }); if (Date.now() - t0 < 350 || blob.size < 200) return;
-      if (blob.size > 30000) { this.chatNote.textContent = 'Clip too long — keep it under 4 s'; return; }
-      const fr = new FileReader(); fr.onload = () => { const s = String(fr.result), at = s.indexOf(','), n = this.net; if (!n || at < 0) return;
-        n.send({ t: 'chat', k: 'v', mt: blob.type.split(';')[0] + (blob.type.includes('opus') ? ';codecs=opus' : ''), a: s.slice(at + 1) }); this.showTalk('You'); }; fr.readAsDataURL(blob);
+      if (blob.size > 30000) { this.chatNote.textContent = 'A clip was too large and was skipped'; return; }
+      const fr = new FileReader(); fr.onload = () => { const str = String(fr.result), at = str.indexOf(','), n = this.net; if (!n || at < 0) return;
+        n.send({ t: 'chat', k: 'v', mt: blob.type.split(';')[0] + (blob.type.includes('opus') ? ';codecs=opus' : ''), a: str.slice(at + 1) }); this.showTalk('You'); }; fr.readAsDataURL(blob);
     };
-    rec.start(); this.recT = setTimeout(() => this.stopTalk(), 4000);
+    rec.start(); this.segT = setTimeout(() => { try { if (rec.state === 'recording') rec.stop(); } catch (e) { /* ignore */ } }, 3000);
   }
-  stopTalk() { this.held = false; try { if (this.rec && this.rec.state === 'recording') this.rec.stop(); } catch (e) { /* ignore */ } }
+  stopTalk() {
+    this.held = false; this.latched = false; this.talking = false; clearTimeout(this.maxT); clearTimeout(this.segT);
+    try { if (this.rec && this.rec.state === 'recording') this.rec.stop(); } catch (e) { /* ignore */ } this.paintTalk();
+  }
+  sendText() {
+    const n = this.net, v = this.cinput.value.trim().slice(0, 200); if (!n || !n.started || !v) return; const now = Date.now(); if (now - (this.lastText || 0) < 400) return; this.lastText = now;
+    n.send({ t: 'chat', k: 't', s: v }); this.cinput.value = ''; this.addLine(n.players[n.seat] || 'You', v, true);
+  }
+  addLine(name, text, mine) {
+    if (this.clog.firstChild && this.clog.firstChild.tagName === 'SMALL') this.clog.replaceChildren();
+    this.clog.append(h('div', { class: 'cl' + (mine ? ' me' : '') }, h('b', null, mine ? 'You' : name), h('span', null, text)));
+    while (this.clog.children.length > 60) this.clog.firstChild.remove(); this.clog.scrollTop = this.clog.scrollHeight;
+    if (!mine && this.chatPanel.classList.contains('hidden')) { this.unread++; this.chatBtn.dataset.n = this.unread > 9 ? '9+' : this.unread; UI.toast('💬 ' + name + ': ' + (text.length > 40 ? text.slice(0, 40) + '…' : text), 2600); }
+  }
+  /** Incoming clips play one after another (never on top of each other). */
+  playNext() {
+    if (this.vPlaying || !this.vq.length) return; this.vPlaying = true; const src = this.vq.shift();
+    const done = () => { this.vPlaying = false; this.playNext(); };
+    try { const a = new Audio(src); a.onended = done; a.onerror = done; const p = a.play(); if (p && p.catch) p.catch(done); } catch (e) { done(); }
+  }
   showTalk(name) { const el = h('div', { class: 'react', style: { left: '40%' } }, h('b', null, '🎤'), h('small', null, name)); this.reactEl.append(el); setTimeout(() => el.remove(), 2500); }
   onChat(net, m) {
     if (net.replaying || FF || m.from === net.seat) return; const name = net.players[m.from] || 'Player';
     if (m.k === 'e') this.showReact(name, m.i | 0);
+    else if (m.k === 't' && typeof m.s === 'string') this.addLine(name, m.s.slice(0, 200), false);
     else if (m.k === 'v' && this.voiceOn && typeof m.a === 'string' && /^audio\/[a-z0-9]+(;codecs=[a-z0-9]+)?$/.test(m.mt || '')) {
-      this.showTalk(name); try { const a = new Audio(`data:${m.mt};base64,${m.a}`); a.volume = 1; const p = a.play(); if (p && p.catch) p.catch(() => { /* autoplay blocked until the player taps once */ }); } catch (e) { /* ignore */ }
+      this.showTalk(name); if (this.vq.length < 8) this.vq.push(`data:${m.mt};base64,${m.a}`); this.playNext();
     }
   }
   updateAwayBar() {

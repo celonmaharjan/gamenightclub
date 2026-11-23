@@ -42,8 +42,9 @@ node server.js                # prints http://<your-ip>:8787 — everyone opens 
 Tap **🌐 Play Online** → host creates a room and shares an **invite link** (or the 4-letter code) → friends join → host picks a
 game, can **fill empty seats with computer players**, and starts.
 
-- **Chat:** in an online game tap 💬 — send **emoji reactions** (each plays a little sound) or **hold 🎤 to talk** (voice clips up to 4 s, played on everyone's device;
-  "Voices off" mutes them). Voice needs HTTPS or `localhost` and microphone permission; reactions work anywhere.
+- **Chat:** in an online game tap 💬 for **text chat** (with an unread badge), **emoji reactions** (each plays a little sound) and **voice**:
+  tap 🎤 once to keep your mic open, tap again to stop — or hold it for push-to-talk. Voice goes out as 3-second clips played one after another
+  (not true live streaming); "Voices off" mutes incoming clips. Voice needs HTTPS or `localhost` and microphone permission; text and reactions work anywhere.
 - **Reconnect:** if your connection drops or you reload the page, your seat is held for 2 minutes and the game catches you up automatically.
 - **Install it:** when served by the server over HTTPS (or `localhost`) the app is installable (📲 button / browser "Add to Home screen")
   and single-player works offline.
