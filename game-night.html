@@ -78,18 +78,25 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;z-index:130;pointe
 @keyframes pulse{to{transform:scale(1.14)}}
 
 /* Dice (shared by Ludo and Snakes & Ladders) */
-.dice{--dc:#fff;width:68px;height:68px;border-radius:16px;border:0;padding:9px;background:linear-gradient(145deg,#fff,#e5e7eb);
-  display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);box-shadow:0 5px 0 #9ca3af,0 10px 18px #0006;position:relative;transition:transform .1s}
-.dice::after{content:'';position:absolute;inset:0;border-radius:16px;box-shadow:inset 0 0 0 4px var(--dc);opacity:.9;pointer-events:none}
+.dice{--dc:#fff;flex:none;width:64px;height:64px;border-radius:16px;border:0;padding:8px;background:linear-gradient(145deg,#fff,#e5e7eb);
+  display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);box-shadow:0 5px 0 #9ca3af,0 10px 18px #0006;position:relative;transition:transform .15s;touch-action:manipulation}
+.dice::after{content:'';position:absolute;inset:0;border-radius:16px;box-shadow:inset 0 0 0 3px var(--dc);opacity:.9;pointer-events:none}
 .dice i{width:78%;height:78%;margin:auto;border-radius:50%;background:transparent}
 .dice i.on{background:#1f2937;box-shadow:inset 0 2px 3px #000a}
-.dice.ready{animation:wob .9s infinite}
-.dice.ready::before{content:'TAP';position:absolute;top:-22px;left:0;right:0;text-align:center;font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px}
-.dice.rolling{animation:shake .12s infinite}
-@keyframes wob{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg) scale(1.06)}}
-@keyframes shake{0%{transform:rotate(-14deg) translateY(-4px)}50%{transform:rotate(12deg) translateY(2px)}100%{transform:rotate(-8deg) translateY(-3px)}}
-.dicebar{display:flex;align-items:center;justify-content:center;gap:16px;min-height:90px;padding-top:12px}
-.dicebar .info{max-width:230px;font-size:14px;color:var(--mute);min-height:38px;display:flex;align-items:center}
+.dice.ready{animation:ring 1.3s ease-out infinite}                 /* your turn: a pulsing ring in your colour */
+.dice.ready:active{transform:translateY(3px) scale(.97)}
+.dice.rolling{animation:tumble .32s linear infinite}
+.dice.land{animation:land .35s ease-out}
+@keyframes ring{0%{box-shadow:0 5px 0 #9ca3af,0 0 0 0 var(--dc)}70%{box-shadow:0 5px 0 #9ca3af,0 0 0 14px transparent}100%{box-shadow:0 5px 0 #9ca3af,0 0 0 0 transparent}}
+@keyframes tumble{0%{transform:rotate(0) scale(1)}25%{transform:rotate(90deg) scale(.85) translateY(-7px)}50%{transform:rotate(180deg) scale(1)}75%{transform:rotate(270deg) scale(.85) translateY(-7px)}100%{transform:rotate(360deg) scale(1)}}
+@keyframes land{0%{transform:scale(1.25)}60%{transform:scale(.93)}100%{transform:scale(1)}}
+/* Dice tray: pinned to the bottom of the screen so the dice is always reachable, tinted with the current player's colour */
+.dicebar{--dc:#fff;position:sticky;bottom:max(8px,env(safe-area-inset-bottom));z-index:6;display:flex;align-items:center;gap:14px;
+  width:min(100%,560px);margin:12px auto 8px;padding:10px 16px 10px 12px;border-radius:20px;background:#0d0b26f0;backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-left:6px solid var(--dc);box-shadow:0 10px 30px #000a}
+.dicebar .info{flex:1;min-width:0;font-size:15px;font-weight:700;color:#fff;line-height:1.3}
+.dicebar .val{flex:none;min-width:34px;font-size:32px;font-weight:900;text-align:center;color:var(--dc);text-shadow:0 2px 10px #000c}
+body:has(#chatbtn:not(.hidden)) .dicebar{width:min(calc(100% - 64px),560px);margin-left:0}   /* leave room for the 💬 button online */
 
 /* ---------- 3. Menu ---------- */
 .hero{text-align:center;padding:30px 0 18px}
@@ -294,6 +301,10 @@ button.chip{color:inherit;cursor:pointer}
   .stage{--bs:max(310px,calc(100vh - 130px));flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 20px}
   .stage .hint{display:none}.turnbar{margin:4px auto 2px;padding:4px 12px}.hero{padding:10px 0 6px}.logo{font-size:36px}
   .cg{width:min(100%,900px)}
+  /* landscape: the dice tray sits in the empty space left of the board */
+  .dicebar,body:has(#chatbtn:not(.hidden)) .dicebar{position:fixed;left:10px;bottom:max(10px,env(safe-area-inset-bottom));top:auto;margin:0;width:min(180px,calc((100vw - var(--bs)) / 2 - 18px));
+    flex-direction:column;gap:6px;padding:12px 10px;border-left-width:1px;border-top:6px solid var(--dc);text-align:center}
+  .dicebar .info{font-size:13px}.dicebar .val{font-size:26px;min-height:30px}
 }
 /* bigger invisible tap area around small Ludo tokens (they are only ~19px on a phone) */
 .tk::after{content:'';position:absolute;inset:-45%;border-radius:50%}
@@ -540,7 +551,9 @@ class Dice {
   /** Trigger a roll request (a local click, or a replayed remote one). */
   fire() { if (this.onClick) this.onClick(); }
   show(v) { this.value = v; this.pips.forEach((p, i) => p.classList.toggle('on', Dice.PIPS[v].includes(i))); }
-  setColor(c) { this.el.style.setProperty('--dc', c); }
+  /** The dice tray: dice + status text + last rolled number, tinted with the current player's colour. */
+  bar(info) { this.valEl = h('b', { class: 'val', 'aria-live': 'polite' }); this.barEl = h('div', { class: 'dicebar' }, this.el, info, this.valEl); return this.barEl; }
+  setColor(c) { this.el.style.setProperty('--dc', c); if (this.barEl) { this.barEl.style.setProperty('--dc', c); this.valEl.textContent = ''; } }
   enable(on) { this.el.disabled = !on; this.el.classList.toggle('ready', on); }
   /** Resolves on the next click of the (enabled) die. */
   waitClick() { return new Promise(res => { this.onClick = () => { this.onClick = null; res(); }; }); }
@@ -549,7 +562,9 @@ class Dice {
     Sound.play('dice'); this.el.classList.add('rolling');
     for (let i = 0; i < (FF ? 0 : 10); i++) { this.show(1 + crand(6)); await sleep(62); }
     if (game) game.check();                 // the game was closed mid-roll (e.g. re-sync rebuilt it): don't consume the new game's random numbers
-    const v = 1 + rand(6); this.show(v); this.el.classList.remove('rolling'); return v;
+    const v = 1 + rand(6); this.show(v); this.el.classList.remove('rolling');
+    if (!FF) { this.el.classList.remove('land'); void this.el.offsetWidth; this.el.classList.add('land'); }
+    if (this.valEl) this.valEl.textContent = v; return v;
   }
 }
 
@@ -985,7 +1000,7 @@ class Ludo extends Game {
     if (this.resume) { this.tok.forEach((a, p) => a.forEach((t, ti) => { t.pos = t.vpos = this.resume.tok[p][ti]; })); this.cur = this.resume.cur; }
     this.info = h('div', { class: 'info' }, ''); this.roster = h('div', { class: 'chips' });
     this.tokLayer = h('div', { class: 'ld-tokens' }, this.all.map(t => t.el));
-    this.root.append(this.buildBoard(), h('div', { class: 'dicebar' }, this.dice.el, this.info), this.roster,
+    this.root.append(this.buildBoard(), this.dice.bar(this.info), this.roster,
       h('p', { class: 'hint' }, '6 to leave base · 6 = roll again (three 6s lose the turn) · ★ squares are safe · exact roll to finish'));
     this.layout(); this.updateRoster(); this.run(() => this.loop());
   }
@@ -1115,7 +1130,7 @@ class Ludo extends Game {
   nextPlayer() { this.cur = (this.cur + 1) % this.players.length; this.sixes = 0; this.updateRoster(); }
   async playTurn() {
     const P = this.players[this.cur]; this.turn(this.cur, 'Roll the dice'); this.dice.setColor(this.colorOf(this.cur)); this.updateRoster();
-    this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
+    this.info.textContent = P.cpu ? `${P.name} is rolling…` : this.isMine(this.cur) ? (this.net ? 'Your turn — tap the dice!' : `${P.name}, tap the dice!`) : `Waiting for ${P.name}…`;
     if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
     const roll = await this.dice.roll(this); this.check();
     this.sixes = roll === 6 ? this.sixes + 1 : 0;
@@ -1214,7 +1229,7 @@ class SnakesLadders extends Game {
     this.pawns = this.players.map((p, i) => h('div', { class: 'pawn', style: { '--pc': this.colorOf(i) } }, i + 1));
     this.wrap = h('div', { class: 'sl-wrap' }, h('div', { class: 'sl-grid' }, cells), this.drawSVG(), h('div', { class: 'sl-start' }, 'START'), this.pawns);
     this.info = h('div', { class: 'info' }, ''); this.roster = h('div', { class: 'chips' });
-    this.root.append(this.wrap, h('div', { class: 'dicebar' }, this.dice.el, this.info), this.roster,
+    this.root.append(this.wrap, this.dice.bar(this.info), this.roster,
       h('p', { class: 'hint' }, '🔀 A brand-new random board every game · land exactly on 100 · roll a 6 to go again'));
     this.relayout(); this.updateRoster(); this.run(() => this.loop());
   }
@@ -1266,7 +1281,7 @@ class SnakesLadders extends Game {
   async loop() {
     while (!this.over) {
       const i = this.cur, P = this.players[i]; this.turn(i, 'Roll the dice'); this.dice.setColor(this.colorOf(i)); this.updateRoster();
-      this.info.textContent = P.cpu ? 'Thinking…' : this.isMine(this.cur) ? 'Tap the dice!' : `Waiting for ${P.name}…`;
+      this.info.textContent = P.cpu ? `${P.name} is rolling…` : this.isMine(this.cur) ? (this.net ? 'Your turn — tap the dice!' : `${P.name}, tap the dice!`) : `Waiting for ${P.name}…`;
       if (P.cpu) await this.wait(700); else { this.dice.enable(this.isMine(this.cur)); await this.dice.waitClick(); this.dice.enable(false); }
       const r = await this.dice.roll(this); this.check(); await this.takeTurn(i, r); if (this.over) return;
       if (r === 6) UI.toast(`${P.name} rolled a 6 — go again! 🎉`); else this.cur = (i + 1) % this.players.length;
